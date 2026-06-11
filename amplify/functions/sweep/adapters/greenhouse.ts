@@ -5,6 +5,7 @@
 
 import {
   eligibilityFromLocation,
+  extractSalary,
   type FetchConfig,
   type NormalizedRole,
   type RawPosting,
@@ -46,14 +47,16 @@ export const greenhouse: SourceAdapter = {
         if (!res.ok) continue; // board gone or renamed — skip, don't fail the sweep
         const body = (await res.json()) as { jobs?: GreenhouseJob[] };
         for (const job of body.jobs ?? []) {
+          const description = stripHtml(job.content ?? '');
           postings.push({
             sourceId: `greenhouse:${entry.slug}:${job.id}`,
             title: job.title,
             company: entry.company,
             location: job.location?.name ?? '',
             url: job.absolute_url,
-            description: stripHtml(job.content ?? ''),
+            description,
             postedAt: job.updated_at,
+            salary: extractSalary(description),
           });
         }
       } catch {
@@ -72,6 +75,7 @@ export const greenhouse: SourceAdapter = {
       url: raw.url,
       rawDescription: raw.description,
       sourceName: 'Greenhouse',
+      salary: raw.salary,
       eligibility: eligibilityFromLocation(raw.location, 'Greenhouse location field'),
     };
   },

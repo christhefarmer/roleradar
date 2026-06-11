@@ -44,6 +44,8 @@ export interface Role {
   recordId?: string;
   /** Original posting URL (connected mode). */
   url?: string;
+  /** Posting-stated compensation, when the source exposes or mentions it. */
+  salary?: string;
   title: string;
   company: string;
   location: string;

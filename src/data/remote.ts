@@ -45,6 +45,7 @@ interface ScoredRoleWire {
   url: string;
   rawDescription: string;
   sourceName: string;
+  salary?: string;
   eligibility: { state: 'ca' | 'us' | 'unknown'; label: string; detail: string };
   score: number;
   matchedTerms: string[];
@@ -146,6 +147,7 @@ type RoleRow = {
   company: string;
   location?: string | null;
   url?: string | null;
+  salary?: string | null;
   sourceName?: string | null;
   rawDescription?: string | null;
   eligibility?: unknown;
@@ -210,16 +212,21 @@ function rowToUiRole(row: RoleRow): Role {
         }
       : undefined;
   const verdict = fit?.verdict ?? 'reach';
+  // "seen Nd" is the repost framing — only earned once the posting has
+  // actually lingered, not after a few same-day sweeps.
+  const posted =
+    seen > 3 && ageDays > 7 ? `seen ${ageDays}d` : ageDays === 0 ? 'today' : `${ageDays}d ago`;
   return {
     id: row.id,
     recordId: row.id,
     title: row.title,
     company: row.company,
     location: row.location ?? '',
-    posted: seen > 3 ? `seen ${ageDays}d` : `${ageDays}d`,
+    posted,
     days: ageDays,
     source: row.sourceName ?? '',
     url: row.url ?? undefined,
+    salary: row.salary ?? undefined,
     score: fit?.score ?? 0,
     verdict,
     dims: { ...EMPTY_DIMS, ...(fit?.dims ?? {}) },
@@ -663,6 +670,11 @@ export async function runSweepRemote(
         seenRuns: [...(prev.seenRuns ?? []).map((r) => !!r).slice(-7), true],
         fit: JSON.stringify(keepAi ? prevFit : baselineFit(wire, cfg)),
         gem: wire.gem ? JSON.stringify(wire.gem) : prev.gem == null ? undefined : prev.gem,
+        // Heal fields the source may have parsed better this run.
+        ...(wire.company && !prev.company ? { company: wire.company } : {}),
+        ...(wire.location && !prev.location ? { location: wire.location } : {}),
+        ...(wire.url && !prev.url ? { url: wire.url } : {}),
+        ...(wire.salary ? { salary: wire.salary } : {}),
       });
     } else {
       const created = await c.models.Role.create({
@@ -673,6 +685,7 @@ export async function runSweepRemote(
         url: wire.url || undefined,
         rawDescription: wire.rawDescription,
         sourceName: wire.sourceName,
+        salary: wire.salary,
         eligibility: JSON.stringify(wire.eligibility),
         eligibilityOverridden: false,
         fit: JSON.stringify(baselineFit(wire, cfg)),

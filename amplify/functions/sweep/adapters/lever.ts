@@ -3,6 +3,7 @@
 
 import {
   eligibilityFromLocation,
+  extractSalary,
   type FetchConfig,
   type NormalizedRole,
   type RawPosting,
@@ -20,6 +21,15 @@ interface LeverPosting {
   categories?: { location?: string; commitment?: string; team?: string };
   descriptionPlain?: string;
   lists?: { text: string; content: string }[];
+  salaryRange?: { min?: number; max?: number; currency?: string; interval?: string };
+}
+
+function formatSalaryRange(r?: LeverPosting['salaryRange']): string | undefined {
+  if (!r?.min && !r?.max) return undefined;
+  const fmt = (n?: number) => (n ? `$${n.toLocaleString('en-CA')}` : '');
+  const range = [fmt(r.min), fmt(r.max)].filter(Boolean).join(' – ');
+  const interval = r.interval ? ` per ${r.interval.replace(/-/g, ' ').toLowerCase()}` : '';
+  return `${range}${r.currency ? ` ${r.currency}` : ''}${interval}`.trim();
 }
 
 function stripHtml(html: string): string {
@@ -48,14 +58,16 @@ export const lever: SourceAdapter = {
           const lists = (job.lists ?? [])
             .map((l) => `${l.text} ${stripHtml(l.content)}`)
             .join(' ');
+          const description = `${job.descriptionPlain ?? ''} ${lists}`.trim();
           postings.push({
             sourceId: `lever:${entry.slug}:${job.id}`,
             title: job.text,
             company: entry.company,
             location: job.categories?.location ?? '',
             url: job.hostedUrl,
-            description: `${job.descriptionPlain ?? ''} ${lists}`.trim(),
+            description,
             postedAt: job.createdAt ? new Date(job.createdAt).toISOString() : undefined,
+            salary: formatSalaryRange(job.salaryRange) ?? extractSalary(description),
           });
         }
       } catch {
@@ -74,6 +86,7 @@ export const lever: SourceAdapter = {
       url: raw.url,
       rawDescription: raw.description,
       sourceName: 'Lever',
+      salary: raw.salary,
       eligibility: eligibilityFromLocation(raw.location, 'Lever location'),
     };
   },

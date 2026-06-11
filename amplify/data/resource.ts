@@ -54,6 +54,8 @@ const schema = a.schema({
       url: a.url(),
       rawDescription: a.string(),
       sourceName: a.string(),
+      /** Posting-stated compensation, when the source exposes or mentions it. */
+      salary: a.string(),
       // Heuristic hints, always with provenance (never presented as certainty):
       // { state: 'ca' | 'us', label, detail }
       eligibility: a.json(),

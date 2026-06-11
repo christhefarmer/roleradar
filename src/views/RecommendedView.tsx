@@ -198,8 +198,15 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
             <EligBadge elig={r.elig} />
           </div>
           <div style={{ fontFamily: MONO, fontSize: 11.5, color: '#8A8475', marginTop: 5 }}>
-            {r.company} · {r.location} · {r.source} · {r.posted}
-            {r.posted.indexOf('seen') < 0 ? ' ago' : ''}
+            {[
+              r.company,
+              r.location,
+              r.salary,
+              r.source,
+              /^\d+d$/.test(r.posted) ? `${r.posted} ago` : r.posted,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginTop: 12, flexWrap: 'wrap' }}>
