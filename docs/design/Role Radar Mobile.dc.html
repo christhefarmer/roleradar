@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:#E7E4DC;}
+  [data-rr=mchat]::-webkit-scrollbar{width:0;}
+  [data-rr=qr]::-webkit-scrollbar{height:0;}
+  @keyframes rrpulse{0%{box-shadow:0 0 0 0 rgba(30,138,79,0.5);}70%{box-shadow:0 0 0 6px rgba(30,138,79,0);}100%{box-shadow:0 0 0 0 rgba(30,138,79,0);}}
+  @keyframes radarsweep{to{transform:rotate(360deg);}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#E7E4DC;padding:38px 20px 60px;font-family:'IBM Plex Sans',sans-serif;">
+  <div style="max-width:880px;margin:0 auto;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8475;letter-spacing:0.1em;margin-bottom:7px;">ROLE RADAR · MOBILE PWA</div>
+    <h1 style="font-size:25px;font-weight:600;margin:0 0 6px;color:#211E18;letter-spacing:-0.01em;">roleradar.bot opens straight into your scout</h1>
+    <p style="font-size:13.5px;color:#7A7468;margin:0 0 30px;max-width:600px;line-height:1.55;text-wrap:pretty;">Installed to the home screen, it launches past the cockpit into the bot — a calm, conversational briefing of what changed and what needs your call. Try the chat on the right.</p>
+
+    <div style="display:flex;gap:42px;flex-wrap:wrap;align-items:flex-start;">
+
+      <!-- ===== FRAME 1 · LAUNCH ===== -->
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8475;letter-spacing:0.08em;margin-bottom:11px;">LAUNCH SCREEN</div>
+        <div style="width:344px;background:#1A1813;border-radius:52px;padding:7px;box-shadow:0 30px 70px rgba(0,0,0,0.22);position:relative;">
+          <div style="border-radius:45px;overflow:hidden;background:#1E8A4F;height:712px;position:relative;display:flex;flex-direction:column;">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:112px;height:31px;border-radius:20px;background:#000;z-index:50;"></div>
+            <div style="height:48px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 5px;flex:0 0 auto;">
+              <span style="font-size:14px;font-weight:600;color:#fff;">9:41</span>
+              <span style="width:23px;height:12px;border:1.4px solid #fff;border-radius:3px;display:inline-flex;align-items:center;padding:1.5px;"><span style="width:15px;height:100%;background:#fff;border-radius:1px;"></span></span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 30px;">
+              <div style="width:96px;height:96px;border-radius:23px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 14px 40px rgba(0,0,0,0.25);">
+                <svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="#1E8A4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle>
+                </svg>
+              </div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;letter-spacing:0.12em;color:#fff;margin-top:22px;">RADAR</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:rgba(255,255,255,0.7);margin-top:7px;letter-spacing:0.02em;">roleradar.bot</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:30px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:#fff;"></span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(255,255,255,0.85);">waking your scout…</span>
+              </div>
+            </div>
+            <div style="padding:0 30px 42px;text-align:center;flex:0 0 auto;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:rgba(255,255,255,0.55);letter-spacing:0.08em;">INSTALLED · STANDALONE PWA</div>
+            </div>
+            <div style="position:absolute;bottom:7px;left:50%;transform:translateX(-50%);width:128px;height:5px;border-radius:10px;background:rgba(255,255,255,0.5);z-index:60;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== FRAME 2 · THE BOT ===== -->
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8475;letter-spacing:0.08em;margin-bottom:11px;">HOME · THE BOT</div>
+        <div style="width:344px;background:#1A1813;border-radius:52px;padding:7px;box-shadow:0 30px 70px rgba(0,0,0,0.22);position:relative;">
+          <div style="border-radius:45px;overflow:hidden;background:#F4F2EC;height:712px;position:relative;display:flex;flex-direction:column;">
+            <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:112px;height:31px;border-radius:20px;background:#000;z-index:50;"></div>
+
+            <!-- status bar -->
+            <div style="height:48px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 5px;flex:0 0 auto;background:#F4F2EC;">
+              <span style="font-size:14px;font-weight:600;color:#211E18;">9:41</span>
+              <span style="width:23px;height:12px;border:1.4px solid #211E18;border-radius:3px;display:inline-flex;align-items:center;padding:1.5px;"><span style="width:15px;height:100%;background:#211E18;border-radius:1px;"></span></span>
+            </div>
+
+            <!-- app header -->
+            <div style="display:flex;align-items:center;gap:11px;padding:6px 18px 13px;border-bottom:1px solid #E2DDD1;flex:0 0 auto;background:#F4F2EC;">
+              <span style="width:36px;height:36px;border-radius:10px;background:#1E8A4F;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
+                <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle>
+                </svg>
+              </span>
+              <div style="flex:1;min-width:0;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:600;letter-spacing:0.08em;color:#211E18;">RADAR</div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ headerDot }};flex:0 0 auto;"></span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8475;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ headerStatus }}</span>
+                </div>
+              </div>
+              <button onClick="{{ onReplay }}" title="Re-run sweep" style="width:30px;height:30px;border-radius:8px;background:#EFECE4;border:1px solid #E2DDD1;display:flex;align-items:center;justify-content:center;color:#6E685D;font-size:14px;cursor:pointer;flex:0 0 auto;">↻</button>
+              <button onClick="{{ onOpenSheet }}" title="Full cockpit" style="width:30px;height:30px;border-radius:8px;background:#EFECE4;border:1px solid #E2DDD1;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#6E685D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
+              </button>
+            </div>
+
+            <!-- live sweep -->
+            <sc-if value="{{ showSweep }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;background:#F4F2EC;">
+                <div style="width:132px;height:132px;border-radius:50%;border:1px solid #E0DBCF;position:relative;display:flex;align-items:center;justify-content:center;">
+                  <div style="position:absolute;inset:15px;border-radius:50%;border:1px solid #EAE5D9;"></div>
+                  <div style="position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg, rgba(30,138,79,0.30), rgba(30,138,79,0) 90deg);animation:radarsweep 1.5s linear infinite;"></div>
+                  <span style="width:48px;height:48px;border-radius:13px;background:#1E8A4F;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;box-shadow:0 0 0 7px #F4F2EC;">
+                    <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle></svg>
+                  </span>
+                </div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#3A352D;letter-spacing:0.05em;margin-top:24px;">SCOUTS ON PATROL…</div>
+                <div style="width:100%;max-width:248px;margin-top:18px;display:flex;flex-direction:column;gap:8px;">
+                  <sc-for list="{{ sweepSources }}" as="s" hint-placeholder-count="5">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <span style="width:8px;height:8px;border-radius:50%;background:{{ s.dot }};flex:0 0 auto;"></span>
+                      <span style="flex:1;font-size:12px;color:{{ s.color }};">{{ s.name }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:{{ s.statColor }};">{{ s.stat }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- chat -->
+            <sc-if value="{{ showBrief }}" hint-placeholder-val="{{ true }}">
+            <div data-rr="mchat" style="flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:12px;">
+              <sc-for list="{{ messages }}" as="m" hint-placeholder-count="6">
+
+                <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:8px;align-items:flex-start;">
+                    <span style="width:23px;height:23px;border-radius:7px;background:#E7F1E8;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px;">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#1E8A4F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle>
+                      </svg>
+                    </span>
+                    <div style="flex:1;min-width:0;background:#FBFAF6;border:1px solid #E4DFD4;border-radius:3px 13px 13px 13px;padding:11px 13px;font-size:13.5px;line-height:1.55;color:#3A352D;text-wrap:pretty;">{{ m.text }}</div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ m.isMatch }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-left:31px;background:#FBFAF6;border:1px solid #E4DFD4;border-left:3px solid #1E8A4F;border-radius:12px;padding:13px 14px;">
+                    <div style="display:flex;align-items:flex-start;gap:8px;">
+                      <span style="flex:1;font-size:15px;font-weight:600;color:#211E18;line-height:1.25;">{{ featuredMatch.title }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;padding:2px 6px;border-radius:5px;background:#E7F1E8;color:#0F6B3B;border:1px solid #C5DDCB;flex:0 0 auto;">CA ✓</span>
+                    </div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8475;margin-top:4px;">{{ featuredMatch.meta }}</div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-top:11px;">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:6px;background:#E7F1E8;color:#0F6B3B;border:1px solid #C5DDCB;">MATCH</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#0F6B3B;">{{ featuredMatch.score }}<span style="font-size:9px;color:#B8B0A0;">/100</span></span>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+                      <sc-for list="{{ featuredMatch.reasons }}" as="r" hint-placeholder-count="2">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 8px;border-radius:6px;background:#E7F1E8;color:#0F6B3B;border:1px solid #C5DDCB;">{{ r }}</span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;gap:7px;margin-top:13px;">
+                      <button style="flex:1;border:none;cursor:pointer;padding:9px;border-radius:8px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;">Save to pipeline</button>
+                      <button style="border:1px solid #E2DDD1;background:#FBFAF6;color:#3A352D;cursor:pointer;padding:9px 14px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;">Why?</button>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ m.isProposals }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-left:31px;display:flex;flex-direction:column;gap:8px;">
+                    <sc-for list="{{ proposals }}" as="p" hint-placeholder-count="3">
+                      <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-left:3px solid {{ p.accent }};border-radius:10px;padding:11px 12px;opacity:{{ p.opacity }};">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;padding:2px 7px;border-radius:5px;background:{{ p.tagBg }};color:{{ p.tagColor }};border:1px solid {{ p.tagBd }};letter-spacing:0.04em;">{{ p.kind }}</span>
+                        <div style="font-size:12.5px;font-weight:600;color:#211E18;margin-top:7px;">{{ p.title }}</div>
+                        <p style="margin:4px 0 0;font-size:11.5px;color:#7A7468;line-height:1.5;">{{ p.rationale }}</p>
+                        <div style="display:flex;align-items:center;gap:7px;margin-top:10px;">
+                          <sc-if value="{{ p.pending }}" hint-placeholder-val="{{ true }}">
+                            <button onClick="{{ p.onApprove }}" style="border:none;cursor:pointer;padding:7px 13px;border-radius:7px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;">✓ Approve</button>
+                            <button onClick="{{ p.onDismiss }}" style="border:1px solid #E2DDD1;background:transparent;color:#97907F;cursor:pointer;padding:7px 13px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;">Dismiss</button>
+                          </sc-if>
+                          <sc-if value="{{ p.resolved }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:{{ p.resolvedColor }};">{{ p.resolvedLabel }}</span>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;justify-content:flex-end;">
+                    <div style="max-width:80%;background:#1E8A4F;color:#fff;border-radius:13px 3px 13px 13px;padding:10px 13px;font-size:13.5px;line-height:1.5;">{{ m.text }}</div>
+                  </div>
+                </sc-if>
+
+              </sc-for>
+            </div>
+
+            <!-- quick replies -->
+            <div data-rr="qr" style="padding:0 13px 9px;display:flex;gap:7px;overflow-x:auto;flex:0 0 auto;background:#F4F2EC;">
+              <sc-for list="{{ suggested }}" as="s" hint-placeholder-count="4">
+                <button onClick="{{ s.onClick }}" style="white-space:nowrap;border:1px solid #E4DFD4;background:#FBFAF6;color:#5E594E;cursor:pointer;padding:7px 12px;border-radius:16px;font-size:11.5px;flex:0 0 auto;">{{ s.label }}</button>
+              </sc-for>
+            </div>
+
+            <!-- input -->
+            <div style="padding:10px 14px 30px;border-top:1px solid #E2DDD1;display:flex;gap:8px;flex:0 0 auto;background:#F4F2EC;">
+              <input value="{{ chatInput }}" onInput="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="Ask Radar anything…" style="flex:1;border:1px solid #E4DFD4;background:#FBFAF6;border-radius:20px;padding:11px 15px;font-size:13.5px;color:#211E18;outline:none;" />
+              <button onClick="{{ onSend }}" style="width:42px;border:none;cursor:pointer;border-radius:21px;background:#1E8A4F;color:#fff;font-size:16px;flex:0 0 auto;">↑</button>
+            </div>
+            </sc-if>
+
+            <!-- escape hatch: full cockpit sheet -->
+            <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ onCloseSheet }}" style="position:absolute;inset:0;z-index:55;background:rgba(26,24,19,0.4);display:flex;flex-direction:column;justify-content:flex-end;">
+                <div style="background:#F4F2EC;border-radius:24px 24px 0 0;padding:10px 16px 30px;box-shadow:0 -12px 40px rgba(0,0,0,0.22);">
+                  <div style="width:38px;height:4px;border-radius:3px;background:#D8D3C8;margin:4px auto 14px;"></div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.06em;margin:0 2px 4px;">OPEN THE FULL COCKPIT</div>
+                  <div style="font-size:12.5px;color:#7A7468;margin:0 2px 14px;line-height:1.5;">Radar handles the day-to-day. The cockpit has every detail when you want to dig in.</div>
+                  <sc-for list="{{ cockpitLinks }}" as="c" hint-placeholder-count="5">
+                    <button onClick="{{ onCloseSheet }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#FBFAF6;border:1px solid #E4DFD4;border-radius:11px;padding:12px 13px;margin-bottom:8px;cursor:pointer;">
+                      <span style="width:30px;height:30px;border-radius:8px;background:#EFECE4;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#1E8A4F;flex:0 0 auto;">{{ c.glyph }}</span>
+                      <span style="flex:1;font-size:14px;font-weight:600;color:#211E18;">{{ c.label }}</span>
+                      <span style="color:#C4BCAC;font-size:15px;">›</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <div style="position:absolute;bottom:7px;left:50%;transform:translateX(-50%);width:128px;height:5px;border-radius:10px;background:rgba(0,0,0,0.26);z-index:60;pointer-events:none;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    chatInput: '',
+    phase: 'sweep',
+    sweepDone: 0,
+    sheetOpen: false,
+    proposalState: {},
+    chat: [
+      { role: 'bot', text: "Good morning. I sent my scouts out while you were away — here's what they brought back." },
+      { role: 'bot', text: "23 roles kept · 2 phantoms muted · 3 hidden gems found." },
+      { role: 'bot', text: "Your strongest new match:" },
+      { role: 'match' },
+      { role: 'bot', text: "I'd also make a few changes to widen your net — your call:" },
+      { role: 'proposals' },
+    ],
+  };
+
+  FEATURED = {
+    title: 'Client Platform Engineer (Apple)',
+    meta: '1Password · Remote · Canada · 2d ago',
+    score: 94,
+    reasons: ['+ Deep macOS/Jamf', '+ Identity & SSO'],
+  };
+
+  PROPOSALS = [
+    { id: 'p_term', kind: 'EXPAND SEARCH', tone: 'good', title: 'Add term: “Workspace Engineer”',
+      rationale: 'Surfaces 3 roles your current terms miss — no extra noise.', ok: 'Added to your search terms.' },
+    { id: 'p_watch', kind: 'ADD COMPANY', tone: 'good', title: 'Watch company: Coveo',
+      rationale: 'A Mac-heavy fleet showed up in their JD. Catch the next engineering req early.', ok: 'Coveo added to watchlist.' },
+    { id: 'p_phantom', kind: 'MUTE PHANTOM', tone: 'bad', title: 'Mute: Hootsuite Apple Fleet',
+      rationale: 'Seen 6× over 94 days, never moves. Mute until it changes.', ok: 'Muted until it changes.' },
+  ];
+
+  SWEEP = [
+    { name: 'Greenhouse', count: '8' }, { name: 'Lever', count: '4' }, { name: 'Ashby', count: '3' },
+    { name: 'Eluta.ca RSS', count: '9' }, { name: 'We Work Remotely', count: '3' },
+  ];
+  COCKPIT = [
+    { glyph: '◆', label: 'Recommended' }, { glyph: '◇', label: 'Hidden gems' },
+    { glyph: '▤', label: 'Pipeline' }, { glyph: '≋', label: 'Search & watchlist' }, { glyph: '◈', label: 'Profile' },
+  ];
+
+  componentDidMount() { this.runSweep(); }
+  runSweep() {
+    if (this._sweeping) return;
+    this._sweeping = true;
+    this.setState({ phase: 'sweep', sweepDone: 0 });
+    const tot = this.SWEEP.length;
+    let i = 0;
+    const step = () => {
+      i++; this.setState({ sweepDone: i });
+      if (i < tot) setTimeout(step, 430);
+      else setTimeout(() => { this._sweeping = false; this.setState({ phase: 'brief' }); }, 700);
+    };
+    setTimeout(step, 550);
+  }
+  openSheet() { this.setState({ sheetOpen: true }); }
+  closeSheet() { this.setState({ sheetOpen: false }); }
+
+  botReply(q) {
+    q = (q || '').toLowerCase();
+    if (/top|match|best|recommend|fit/.test(q)) return "Your top three: 1Password — Client Platform Engineer (94), Jamf — Senior Endpoint Engineer (91), and Wealthsimple — Identity & Access (88). 1Password is the cleanest fit. Want me to save it to your pipeline?";
+    if (/new|sweep|found|latest|today/.test(q)) return "This sweep fetched 31 roles, kept 23, muted 2 phantoms, and surfaced 3 hidden gems. The standout is Modern Workplace Lead @ Benevity — a generic title that's ~78% your stack.";
+    if (/phantom|repost|evergreen|fake/.test(q)) return "Hootsuite's Apple Fleet role has shown up on 6 of the last 8 sweeps over 94 days and never moved — a classic evergreen req. I've queued it to mute; approve above and it stops resurfacing.";
+    if (/proposal|queue|move|approve|change/.test(q)) return "The 3 cards above are everything waiting. The highest-value one adds “Workspace Engineer” — it'd surface 3 roles you'd otherwise never see.";
+    if (/gem|hidden/.test(q)) return "3 gems this sweep: Modern Workplace Lead @ Benevity and Technical Implementation Consultant @ Dialpad (content matches), plus IT Operations Generalist @ Clio (a fleet signal). Want the details on any?";
+    if (/eligib|canada|remote|visa|\bus\b/.test(q)) return "I enforce Canada-eligibility as a hard filter. Tailscale's role is a strong skills match but US-only, so it's hidden unless you override it.";
+    if (/pipeline|applied|track|interview/.test(q)) return "You're tracking 3 roles: 1Password (Applied), Jamf (Interview), NinjaOne (Interested). Want a prep checklist for the Jamf interview?";
+    if (/hi|hello|hey|help|start|morning/.test(q)) return "Happy to help. Try “show all matches”, “what's new this sweep?”, or “any phantoms?”.";
+    return "I can walk you through your matches, explain any fit score, flag phantoms, or tee up changes for your approval. What would you like to dig into?";
+  }
+  sendChat(text) {
+    const t = (text != null ? text : this.state.chatInput).trim();
+    if (!t) return;
+    const reply = this.botReply(t);
+    this.setState(s => ({ chat: [...s.chat, { role: 'user', text: t }, { role: 'bot', text: reply }], chatInput: '' }));
+  }
+  approveProposal(p) { this.setState(s => ({ proposalState: { ...s.proposalState, [p.id]: 'approved' } })); }
+  dismissProposal(id) { this.setState(s => ({ proposalState: { ...s.proposalState, [id]: 'dismissed' } })); }
+
+  componentDidUpdate() {
+    if (this._chatLen !== this.state.chat.length) {
+      this._chatLen = this.state.chat.length;
+      const el = document.querySelector('[data-rr=mchat]');
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+  }
+
+  renderVals() {
+    const tone = (t) => ({
+      good: { tagBg: '#E7F1E8', tagColor: '#0F6B3B', tagBd: '#C5DDCB', accent: '#1E8A4F' },
+      bad: { tagBg: '#F6EAE3', tagColor: '#B0492B', tagBd: '#E6CBBE', accent: '#B0492B' },
+    }[t]);
+    const proposals = this.PROPOSALS.map(p => {
+      const st = this.state.proposalState[p.id];
+      const tn = tone(p.tone);
+      return {
+        kind: p.kind, title: p.title, rationale: p.rationale,
+        tagBg: tn.tagBg, tagColor: tn.tagColor, tagBd: tn.tagBd, accent: tn.accent,
+        pending: !st, resolved: !!st, opacity: st === 'dismissed' ? 0.55 : 1,
+        resolvedLabel: st === 'approved' ? '✓ ' + p.ok : '— Dismissed',
+        resolvedColor: st === 'approved' ? '#0F6B3B' : '#A39C8B',
+        onApprove: () => this.approveProposal(p), onDismiss: () => this.dismissProposal(p.id),
+      };
+    });
+    const messages = this.state.chat.map(m => ({
+      text: m.text, isBot: m.role === 'bot', isUser: m.role === 'user',
+      isMatch: m.role === 'match', isProposals: m.role === 'proposals',
+    }));
+    const prompts = ['Show all matches', "What's new?", 'Any phantoms?', 'Hidden gems'];
+    const suggested = prompts.map(label => ({ label, onClick: () => this.sendChat(label) }));
+    const sd = this.state.sweepDone;
+    const sweepSources = this.SWEEP.map((s, idx) => {
+      const done = idx < sd, scanning = idx === sd;
+      return {
+        name: s.name,
+        dot: done ? '#1E8A4F' : (scanning ? '#C39237' : '#D8D3C8'),
+        color: (done || scanning) ? '#3A352D' : '#A39C8B',
+        stat: done ? ('✓ ' + s.count + ' roles') : (scanning ? 'scanning…' : 'queued'),
+        statColor: done ? '#0F6B3B' : (scanning ? '#8A5E14' : '#B0A899'),
+      };
+    });
+    const sweeping = this.state.phase === 'sweep';
+    return {
+      messages, proposals, suggested, featuredMatch: this.FEATURED,
+      showSweep: sweeping, showBrief: !sweeping, sweepSources,
+      headerDot: sweeping ? '#C39237' : '#1E8A4F',
+      headerStatus: sweeping ? 'scouts on patrol…' : 'on · scouts back just now',
+      sheetOpen: this.state.sheetOpen, cockpitLinks: this.COCKPIT,
+      onReplay: () => this.runSweep(),
+      onOpenSheet: () => this.openSheet(),
+      onCloseSheet: () => this.closeSheet(),
+      chatInput: this.state.chatInput,
+      onChatInput: (e) => this.setState({ chatInput: e.target.value }),
+      onChatKey: (e) => { if (e.key === 'Enter') this.sendChat(); },
+      onSend: () => this.sendChat(),
+    };
+  }
+}
+</script>
+</body>
+</html>

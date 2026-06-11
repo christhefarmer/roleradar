@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:#F4F2EC;color:#211E18;-webkit-font-smoothing:antialiased;}
+  ::selection{background:#1E8A4F;color:#fff;}
+  [data-rr=content]::-webkit-scrollbar{width:10px;height:10px;}
+  [data-rr=content]::-webkit-scrollbar-thumb{background:#DCD6C9;border-radius:6px;border:2px solid #F4F2EC;}
+  button{font-family:inherit;}
+  @keyframes radarpulse{0%{box-shadow:0 0 0 0 rgba(30,138,79,0.45);}70%{box-shadow:0 0 0 7px rgba(30,138,79,0);}100%{box-shadow:0 0 0 0 rgba(30,138,79,0);}}
+  @keyframes radarsweep{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+  @media (max-width:820px){
+    [data-rr=shell]{flex-direction:column !important;height:auto !important;min-height:100vh !important;}
+    [data-rr=side]{width:100% !important;flex-direction:row !important;align-items:center !important;overflow-x:auto !important;border-right:none !important;border-bottom:1px solid #E2DDD1 !important;padding:8px 10px !important;gap:6px !important;}
+    [data-rr=brand]{flex:0 0 auto !important;margin:0 8px 0 0 !important;padding:0 !important;border:none !important;}
+    [data-rr=brandtag]{display:none !important;}
+    [data-rr=nav]{flex-direction:row !important;flex:1 1 auto !important;}
+    [data-rr=profile]{display:none !important;}
+    [data-rr=navlabel]{display:none !important;}
+    [data-rr=content]{padding:16px !important;}
+    [data-rr=topbar]{flex-wrap:wrap !important;gap:12px !important;height:auto !important;padding:14px 16px !important;}
+    [data-rr=rail]{position:fixed !important;inset:0 !important;width:100% !important;flex-basis:auto !important;z-index:50 !important;border-left:none !important;}
+  }
+</style>
+</helmet>
+
+<div data-rr="shell" style="display:flex;height:100vh;width:100%;font-family:'IBM Plex Sans',sans-serif;background:#F4F2EC;overflow:hidden;">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside data-rr="side" style="width:238px;flex:0 0 238px;background:#EFECE4;border-right:1px solid #E2DDD1;display:flex;flex-direction:column;padding:18px 14px;">
+    <div data-rr="brand" style="padding:4px 8px 18px;border-bottom:1px solid #E2DDD1;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#1E8A4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle></svg>
+        <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px;letter-spacing:0.14em;">ROLE&nbsp;RADAR</span>
+      </div>
+    </div>
+
+    <nav data-rr="nav" style="display:flex;flex-direction:column;gap:3px;flex:1;">
+      <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+        <button onClick="{{ n.onClick }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:none;cursor:pointer;padding:9px 11px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:0.07em;background:{{ n.bg }};color:{{ n.color }};transition:background .12s;">
+          <span style="width:15px;text-align:center;font-size:12px;color:{{ n.glyphColor }};">{{ n.glyph }}</span>
+          <span data-rr="navlabel" style="flex:1;">{{ n.label }}</span>
+          <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:10px;min-width:17px;text-align:center;padding:1px 5px;border-radius:9px;background:{{ n.badgeBg }};color:{{ n.badgeColor }};">{{ n.badge }}</span>
+          </sc-if>
+        </button>
+      </sc-for>
+    </nav>
+
+    <div data-rr="profile" style="margin-top:14px;position:relative;">
+      <sc-if value="{{ accountMenuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;bottom:calc(100% + 8px);left:0;right:0;background:#FBFAF6;border:1px solid #E4DFD4;border-radius:11px;padding:6px;box-shadow:0 8px 28px rgba(33,30,24,0.13);">
+          <button onClick="{{ onGoProfile }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;padding:9px 10px;border-radius:7px;font-size:12.5px;color:#211E18;">
+            <span style="width:15px;text-align:center;color:#B0A899;">◈</span>Profile
+          </button>
+          <button style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;padding:9px 10px;border-radius:7px;font-size:12.5px;color:#211E18;">
+            <span style="width:15px;text-align:center;color:#B0A899;">⚙</span>Account settings
+          </button>
+          <div style="height:1px;background:#EFEBE1;margin:5px 6px;"></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B0A899;letter-spacing:0.04em;padding:3px 10px 6px;">SECURED BY AWS COGNITO</div>
+          <button onClick="{{ onSignOut }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;padding:9px 10px;border-radius:7px;font-size:12.5px;color:#B0492B;">
+            <span style="width:15px;text-align:center;">⮐</span>Sign out
+          </button>
+        </div>
+      </sc-if>
+      <button onClick="{{ onToggleAccount }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #E6E1D5;background:#F7F4EC;border-radius:10px;padding:9px 10px;cursor:pointer;">
+        <span style="width:30px;height:30px;border-radius:8px;background:#1E8A4F;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;flex:0 0 auto;letter-spacing:0.02em;">{{ acctInitials }}</span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;">
+          <span style="font-size:12.5px;font-weight:600;color:#211E18;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ acctName }}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#97907F;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ acctEmail }}</span>
+        </span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#B0A899;flex:0 0 auto;">{{ acctCaret }}</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main style="flex:1;display:flex;flex-direction:column;min-width:0;">
+
+    <!-- topbar -->
+    <header data-rr="topbar" style="height:74px;flex:0 0 auto;border-bottom:1px solid #E2DDD1;background:#F4F2EC;display:flex;align-items:center;justify-content:space-between;padding:0 26px;gap:18px;">
+      <div style="min-width:0;">
+        <div style="font-size:18px;font-weight:600;letter-spacing:-0.01em;">{{ viewTitle }}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#97907F;margin-top:2px;">{{ viewSub }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:18px;flex:0 0 auto;">
+        <div style="text-align:right;display:flex;flex-direction:column;gap:2px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#97907F;letter-spacing:0.02em;">LAST RUN · {{ runWhen }}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E685D;">{{ runStatus }}</div>
+        </div>
+        <button onClick="{{ onRun }}" style="display:flex;align-items:center;gap:9px;border:none;cursor:pointer;padding:11px 18px;border-radius:8px;background:{{ runBtnBg }};color:{{ runBtnColor }};font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.06em;box-shadow:{{ runBtnShadow }};">
+          <span style="font-size:11px;">{{ runBtnGlyph }}</span>{{ runBtnLabel }}
+        </button>
+      </div>
+    </header>
+
+    <!-- content -->
+    <div data-rr="content" style="flex:1;overflow-y:auto;padding:24px 26px 60px;">
+
+      <!-- ===== PROFILE ===== -->
+      <sc-if value="{{ showProfile }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;">
+          <!-- inputs -->
+          <div style="flex:0 0 296px;max-width:296px;min-width:280px;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.08em;margin-bottom:10px;">SOURCE OF TRUTH — YOUR RÉSUMÉ</div>
+            <textarea value="{{ resumeText }}" onInput="{{ onResumeInput }}" spellcheck="false" style="width:100%;height:230px;resize:vertical;border:1px solid #E4DFD4;background:#FBFAF6;border-radius:10px;padding:13px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.6;color:#3A352D;outline:none;"></textarea>
+
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.08em;margin:16px 0 10px;">LINKEDIN PROFILE — PASTE (MANUAL)</div>
+            <textarea value="{{ linkedinText }}" onInput="{{ onLinkedinInput }}" spellcheck="false" placeholder="Paste your LinkedIn ‘About’ + experience here. No automated LinkedIn pull — this keeps the account you network with safe." style="width:100%;height:96px;resize:vertical;border:1px solid #E4DFD4;background:#FBFAF6;border-radius:10px;padding:13px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.6;color:#3A352D;outline:none;"></textarea>
+
+            <button onClick="{{ onParse }}" style="width:100%;margin-top:14px;border:none;cursor:pointer;padding:12px;border-radius:9px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.05em;box-shadow:0 1px 0 #15623A;">↻ PARSE PROFILE</button>
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;line-height:1.7;margin:11px 2px 0;">Parsed server-side, heuristically. Everything below is a hint you confirm or edit — it never overrides your judgment.</p>
+          </div>
+
+          <!-- extraction -->
+          <div style="flex:1;min-width:280px;">
+            <sc-if value="{{ parsed }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:9px;background:#E7F1E8;border:1px solid #C5DDCB;border-radius:9px;padding:11px 14px;margin-bottom:20px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#0F6B3B;letter-spacing:0.04em;">✓ PARSED</span>
+                <span style="font-size:12.5px;color:#3A6B49;">7 strengths · 8 candidate terms · 3 watchlist suggestions extracted.</span>
+              </div>
+
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:4px;">YOUR STRENGTHS</div>
+              <div style="font-size:12.5px;color:#7A7468;margin-bottom:13px;">This is exactly what every fit score is measured against. Adjust the weights to tune your rankings.</div>
+              <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:24px;">
+                <sc-for list="{{ strengths }}" as="st" hint-placeholder-count="7">
+                  <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:10px;padding:13px 15px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                      <span style="font-size:13.5px;font-weight:600;color:#211E18;">{{ st.label }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:5px;background:{{ st.conf.bg }};color:{{ st.conf.color }};border:1px solid {{ st.conf.bd }};letter-spacing:0.03em;">{{ st.conf.label }}</span>
+                      <span style="flex:1;"></span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#A39C8B;">WEIGHT</span>
+                      <button onClick="{{ st.onWeight }}" title="click to change weight" style="display:flex;gap:3px;align-items:center;border:none;background:transparent;cursor:pointer;padding:2px;">
+                        <sc-for list="{{ st.weightDots }}" as="w" hint-placeholder-count="3">
+                          <span style="width:10px;height:10px;border-radius:2px;background:{{ w.bg }};"></span>
+                        </sc-for>
+                      </button>
+                    </div>
+                    <div style="height:6px;background:#EBE6DB;border-radius:4px;overflow:hidden;margin:11px 0 10px;">
+                      <div style="height:100%;width:{{ st.barFill }};background:{{ st.barColor }};border-radius:4px;"></div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:flex-start;">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B0A899;flex:0 0 auto;padding-top:1px;letter-spacing:0.04em;">RÉSUMÉ</span>
+                      <span style="font-size:12px;color:#7A7468;line-height:1.5;font-style:italic;">“{{ st.ev }}”</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:11px;">SUGGESTED SEARCH TERMS — FROM YOUR RÉSUMÉ</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">
+                <sc-for list="{{ sugTerms }}" as="t" hint-placeholder-count="6">
+                  <button onClick="{{ t.onAdd }}" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:6px 11px;border-radius:8px;background:{{ t.bg }};color:{{ t.color }};border:1px solid {{ t.bd }};">
+                    {{ t.label }}<span style="font-size:9.5px;opacity:0.85;">{{ t.actionLabel }}</span>
+                  </button>
+                </sc-for>
+              </div>
+
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:11px;">SUGGESTED WATCHLIST — INFERRED FROM YOUR PROFILE</div>
+              <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:10px;padding:7px 8px;margin-bottom:24px;">
+                <sc-for list="{{ sugCos }}" as="c" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px;">
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:13px;font-weight:600;color:#211E18;">{{ c.name }}</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#97907F;margin-top:2px;">{{ c.reason }}</div>
+                    </div>
+                    <button onClick="{{ c.onAdd }}" style="border:1px solid {{ c.actionBd }};background:{{ c.actionBg }};color:{{ c.actionColor }};cursor:pointer;padding:6px 12px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;white-space:nowrap;">{{ c.actionLabel }}</button>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:11px;">PROFILE FACTS — SET YOUR DEFAULTS</div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;background:#FBFAF6;border:1px solid #E4DFD4;border-radius:10px;padding:13px 15px;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.05em;">SENIORITY</div>
+                  <div style="font-size:14px;font-weight:600;color:#211E18;margin-top:5px;">Senior IC / Tech-Lead</div>
+                  <div style="font-size:11.5px;color:#7A7468;margin-top:3px;">Open to engineering-forward leadership.</div>
+                </div>
+                <div style="flex:1;min-width:200px;background:#FBFAF6;border:1px solid #E4DFD4;border-radius:10px;padding:13px 15px;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.05em;">LOCATION → ELIGIBILITY</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+                    <span style="font-size:14px;font-weight:600;color:#211E18;">Winnipeg, MB</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;padding:2px 7px;border-radius:5px;background:#E7F1E8;color:#0F6B3B;border:1px solid #C5DDCB;">CANADA ✓</span>
+                  </div>
+                  <div style="font-size:11.5px;color:#7A7468;margin-top:3px;">Canada-eligible filter on by default.</div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ notParsed }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px dashed #DCD6C9;border-radius:12px;padding:48px 28px;text-align:center;">
+                <div style="font-size:24px;color:#C4BCAC;margin-bottom:10px;">◈</div>
+                <div style="font-size:14px;font-weight:600;color:#3A352D;">Résumé edited — re-parse to refresh</div>
+                <p style="font-size:12.5px;color:#97907F;max-width:340px;margin:8px auto 0;line-height:1.55;">Hit <b>Parse profile</b> to re-extract strengths, terms and watchlist suggestions from your updated text.</p>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== RADAR (AGENT) ===== -->
+      <sc-if value="{{ showRadar }}" hint-placeholder-val="{{ false }}">
+
+        <!-- guardrails -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          <sc-for list="{{ guardrails }}" as="g" hint-placeholder-count="4">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:5px 10px;border-radius:7px;background:#F1EEE5;color:#6E685D;border:1px solid #E4DFD4;"><span style="color:#1E8A4F;">✓</span>{{ g }}</span>
+          </sc-for>
+        </div>
+
+        <!-- agent status -->
+        <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:12px;padding:18px 20px;margin-bottom:18px;">
+          <div style="display:flex;align-items:flex-start;gap:16px;justify-content:space-between;flex-wrap:wrap;">
+            <div style="display:flex;gap:13px;align-items:center;">
+              <span style="width:11px;height:11px;border-radius:50%;background:{{ radarDot }};animation:{{ radarPulseAnim }};flex:0 0 auto;"></span>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;letter-spacing:0.04em;color:#211E18;">RADAR · {{ radarStateLabel }}</div>
+                <div style="font-size:12px;color:#7A7468;margin-top:2px;">{{ radarSub }}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.05em;">AUTONOMY</span>
+              <div style="display:flex;border:1px solid #E4DFD4;border-radius:8px;overflow:hidden;">
+                <sc-for list="{{ autonomyBtns }}" as="a" hint-placeholder-count="3">
+                  <button onClick="{{ a.onClick }}" title="{{ a.hint }}" style="border:none;cursor:pointer;padding:7px 12px;background:{{ a.bg }};color:{{ a.color }};font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.02em;border-right:1px solid #E4DFD4;">{{ a.label }}</button>
+                </sc-for>
+              </div>
+              <button onClick="{{ onTogglePause }}" style="border:1px solid #E4DFD4;background:#F4F2EC;color:#6E685D;cursor:pointer;padding:7px 13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;">{{ pauseLabel }}</button>
+            </div>
+          </div>
+
+          <!-- loop pipeline -->
+          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:17px;padding-top:16px;border-top:1px solid #EFEBE1;">
+            <sc-for list="{{ stages }}" as="s" hint-placeholder-count="5">
+              <sc-if value="{{ s.showArrow }}" hint-placeholder-val="{{ false }}"><span style="color:#CFC8B8;font-size:11px;">›</span></sc-if>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:5px 11px;border-radius:7px;background:{{ s.bg }};color:{{ s.color }};border:1px solid {{ s.bd }};letter-spacing:0.04em;">{{ s.label }}</span>
+            </sc-for>
+            <span style="flex:1;"></span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;">{{ sweepHint }}</span>
+          </div>
+
+          <!-- sweep detail (running / done) -->
+          <sc-if value="{{ showSweep }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:16px;border:1px solid #EFEBE1;border-radius:10px;overflow:hidden;">
+              <sc-for list="{{ runSources }}" as="s" hint-placeholder-count="8">
+                <div style="display:flex;align-items:center;gap:13px;padding:11px 15px;border-bottom:1px solid #F2EEE4;">
+                  <span style="width:11px;height:11px;border-radius:50%;background:{{ s.dotBg }};border:2px solid {{ s.dotBorder }};flex:0 0 auto;"></span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:12.5px;font-weight:500;color:{{ s.nameColor }};">{{ s.name }}</div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#97907F;margin-top:1px;">{{ s.detail }}</div>
+                  </div>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ s.statColor }};letter-spacing:0.03em;">{{ s.statLabel }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ runDone }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:14px;background:#E7F1E8;border:1px solid #C5DDCB;border-radius:10px;padding:13px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#0F6B3B;line-height:1.65;">{{ runSummary }}</div>
+            </sc-if>
+          </sc-if>
+        </div>
+
+        <!-- discovery trace -->
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:4px;">DISCOVERY TRACE — WHAT YOUR SCOUTS REASONED FROM YOUR RÉSUMÉ</div>
+        <div style="font-size:12.5px;color:#7A7468;margin-bottom:13px;">Every hidden role traces back to a strength on your profile. No black-box expansion.</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:26px;">
+          <sc-for list="{{ traces }}" as="t" hint-placeholder-count="3">
+            <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:10px;padding:15px 17px;">
+              <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:3px 9px;border-radius:6px;background:#EDE8F5;color:#6B4FA8;border:1px solid #D5CAE8;">◈ {{ t.from }}</span>
+                <span style="color:#CFC8B8;">→</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.04em;">HYPOTHESIS</span>
+              </div>
+              <p style="margin:9px 0 11px;font-size:13px;color:#3A352D;line-height:1.55;text-wrap:pretty;">{{ t.hyp }}</p>
+              <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#0F6B3B;">↳ FOUND {{ t.count }}</span>
+                <sc-for list="{{ t.finds }}" as="f" hint-placeholder-count="2">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:3px 9px;border-radius:6px;background:#E7F1E8;color:#0F6B3B;border:1px solid #C5DDCB;">{{ f }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- proposals now live with the assistant -->
+        <div style="display:flex;align-items:center;gap:14px;background:#FBFAF6;border:1px solid #E4DFD4;border-left:3px solid #1E8A4F;border-radius:10px;padding:15px 17px;flex-wrap:wrap;">
+          <span style="width:34px;height:34px;border-radius:9px;background:#1E8A4F;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle></svg></span>
+          <div style="flex:1;min-width:200px;">
+            <div style="font-size:14px;font-weight:600;color:#211E18;">{{ queueCount }} moves are waiting with your assistant</div>
+            <div style="font-size:12.5px;color:#7A7468;margin-top:3px;">The radar hands its proposals to your assistant — review and approve them there, in plain language.</div>
+          </div>
+          <button onClick="{{ onOpenAssistant }}" style="border:none;cursor:pointer;padding:9px 16px;border-radius:8px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;letter-spacing:0.03em;">Open assistant →</button>
+        </div>
+      </sc-if>
+
+      <!-- ===== RECOMMENDATIONS ===== -->
+      <sc-if value="{{ showRecommend }}" hint-placeholder-val="{{ true }}">
+        <!-- filter bar -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#97907F;letter-spacing:0.06em;">SORT</span>
+          <button onClick="{{ onSortFit }}" style="border:1px solid {{ sortFitBd }};background:{{ sortFitBg }};color:{{ sortFitColor }};cursor:pointer;padding:6px 12px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;">fit</button>
+          <button onClick="{{ onSortNew }}" style="border:1px solid {{ sortNewBd }};background:{{ sortNewBg }};color:{{ sortNewColor }};cursor:pointer;padding:6px 12px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;">newest</button>
+          <span style="width:1px;height:20px;background:#E2DDD1;margin:0 4px;"></span>
+          <button onClick="{{ onToggleCanada }}" style="display:flex;align-items:center;gap:7px;border:1px solid {{ canadaBd }};background:{{ canadaBg }};color:{{ canadaColor }};cursor:pointer;padding:6px 12px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;">
+            <span style="width:8px;height:8px;border-radius:2px;background:{{ canadaDot }};"></span>Canada-eligible only
+          </button>
+          <button onClick="{{ onToggleBelow }}" style="display:flex;align-items:center;gap:7px;border:1px solid {{ belowBd }};background:{{ belowBg }};color:{{ belowColor }};cursor:pointer;padding:6px 12px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;">
+            <span style="width:8px;height:8px;border-radius:2px;background:{{ belowDot }};"></span>Hide below-level
+          </button>
+          <span style="flex:1;"></span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#97907F;">{{ recCountLabel }}</span>
+        </div>
+
+        <sc-for list="{{ recRoles }}" as="r" hint-placeholder-count="6">
+          <div style="background:#FBFAF6;border:1px solid {{ r.cardBorder }};border-left:3px solid {{ r.accent }};border-radius:10px;margin-bottom:11px;opacity:{{ r.cardOpacity }};overflow:hidden;">
+            <!-- header row -->
+            <div onClick="{{ r.onToggle }}" style="display:flex;gap:16px;padding:16px 18px;cursor:pointer;align-items:flex-start;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B8B0A0;width:24px;flex:0 0 auto;padding-top:2px;">{{ r.rank }}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <span style="font-size:16px;font-weight:600;color:#211E18;letter-spacing:-0.01em;">{{ r.title }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 7px;border-radius:5px;background:{{ r.elig.bg }};color:{{ r.elig.color }};border:1px solid {{ r.elig.bd }};letter-spacing:0.03em;">{{ r.elig.label }}</span>
+                </div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8A8475;margin-top:5px;">{{ r.metaLine }}</div>
+
+                <!-- verdict + score + meter -->
+                <div style="display:flex;align-items:center;gap:13px;margin-top:12px;flex-wrap:wrap;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;background:{{ r.verdict.bg }};color:{{ r.verdict.color }};border:1px solid {{ r.verdict.bd }};letter-spacing:0.04em;">{{ r.verdict.label }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:{{ r.scoreColor }};">{{ r.score }}<span style="font-size:10px;color:#B8B0A0;font-weight:400;">/100</span></span>
+                  <div style="display:flex;gap:3px;align-items:center;" title="fit by dimension">
+                    <sc-for list="{{ r.meter }}" as="m" hint-placeholder-count="8">
+                      <span style="width:15px;height:7px;border-radius:2px;background:{{ m.color }};" title="{{ m.label }}"></span>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <!-- chips -->
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;">
+                  <sc-for list="{{ r.chips }}" as="c" hint-placeholder-count="3">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:3px 8px;border-radius:6px;background:{{ c.bg }};color:{{ c.color }};border:1px solid {{ c.bd }};">{{ c.text }}</span>
+                  </sc-for>
+                </div>
+
+                <!-- flag row -->
+                <sc-if value="{{ r.hasFlag }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:11px;padding:9px 11px;background:{{ r.flag.bg }};border:1px solid {{ r.flag.bd }};border-radius:7px;">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ r.flag.color }};letter-spacing:0.04em;">{{ r.flag.label }}</span>
+                    <span style="font-size:12px;color:{{ r.flag.textColor }};">{{ r.flag.text }}</span>
+                    <span style="flex:1;"></span>
+                    <div style="display:flex;gap:3px;">
+                      <sc-for list="{{ r.flag.dots }}" as="d" hint-placeholder-count="8">
+                        <span style="width:8px;height:8px;border-radius:2px;background:{{ d.bg }};border:1px solid {{ d.bd }};"></span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex:0 0 auto;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:#C4BCAC;">{{ r.chevron }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 8px;border-radius:6px;background:{{ r.pipe.bg }};color:{{ r.pipe.color }};border:1px solid {{ r.pipe.bd }};white-space:nowrap;letter-spacing:0.03em;">{{ r.pipe.label }}</span>
+              </div>
+            </div>
+
+            <!-- EXPANDED -->
+            <sc-if value="{{ r.expanded }}" hint-placeholder-val="{{ false }}">
+              <div style="border-top:1px dashed #E0DACE;background:#FCFBF8;padding:20px 22px;">
+                <div style="display:flex;gap:9px;align-items:flex-start;margin-bottom:18px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ r.verdict.color }};flex:0 0 auto;padding-top:2px;">VERDICT</span>
+                  <p style="margin:0;font-size:14px;line-height:1.6;color:#3A352D;text-wrap:pretty;max-width:680px;">{{ r.verdictSentence }}</p>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.08em;">FIT BREAKDOWN — WHY THIS RANKS WHERE IT DOES</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#6B4FA8;background:#EDE8F5;border:1px solid #D5CAE8;border-radius:5px;padding:1px 7px;">◈ scored vs your résumé profile</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+                  <sc-for list="{{ r.dimRows }}" as="d" hint-placeholder-count="8">
+                    <div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap;">
+                      <span style="width:172px;flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E685D;">{{ d.label }}</span>
+                      <div style="flex:0 0 120px;height:7px;background:#EBE6DB;border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;width:{{ d.fill }};background:{{ d.color }};border-radius:4px;"></div>
+                      </div>
+                      <span style="flex:1;min-width:180px;font-size:12.5px;color:#7A7468;">{{ d.note }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <!-- eligibility provenance -->
+                <div style="background:#F4F1E9;border:1px solid #E6E1D5;border-radius:9px;padding:13px 15px;margin-bottom:14px;display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:{{ r.elig.color }};border:1px solid {{ r.elig.bd }};background:{{ r.elig.bg }};padding:2px 7px;border-radius:5px;flex:0 0 auto;">{{ r.elig.label }}</span>
+                  <span style="flex:1;min-width:240px;font-size:12.5px;color:#5E594E;line-height:1.55;">{{ r.eligDetail }}</span>
+                  <button onClick="{{ r.onOverride }}" style="border:1px solid #D8D2C5;background:#FBFAF6;color:#6E685D;cursor:pointer;padding:5px 11px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;">{{ r.overrideLabel }}</button>
+                </div>
+
+                <!-- actions -->
+                <div style="display:flex;gap:9px;flex-wrap:wrap;">
+                  <button onClick="{{ r.onPipe }}" style="border:none;cursor:pointer;padding:9px 16px;border-radius:7px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;letter-spacing:0.03em;">{{ r.pipeActionLabel }}</button>
+                  <button style="border:1px solid #D8D2C5;background:#FBFAF6;color:#3A352D;cursor:pointer;padding:9px 16px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">Open posting ↗</button>
+                  <button onClick="{{ r.onDismiss }}" style="border:1px solid #E2DDD1;background:transparent;color:#97907F;cursor:pointer;padding:9px 16px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">Dismiss</button>
+                  <button onClick="{{ r.onMuteCo }}" title="Never show roles from this company" style="border:1px solid #E2DDD1;background:transparent;color:#97907F;cursor:pointer;padding:9px 16px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">Mute company</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <!-- ===== HIDDEN GEMS ===== -->
+      <sc-if value="{{ showGems }}" hint-placeholder-val="{{ false }}">
+        <div style="max-width:760px;margin-bottom:20px;background:#FBF6E9;border:1px solid #E9DBB6;border-radius:11px;padding:16px 18px;display:flex;gap:13px;align-items:flex-start;">
+          <span style="color:#B07D26;font-size:18px;flex:0 0 auto;line-height:1.2;">◆</span>
+          <div>
+            <div style="font-size:13.5px;font-weight:600;color:#5C4413;">Roles your search terms missed — surfaced on content, not titles.</div>
+            <p style="margin:6px 0 0;font-size:12.5px;color:#7A6A3E;line-height:1.55;text-wrap:pretty;">Two ways in: <b>content match</b> (a generic title whose description is full of your stack) and <b>company signal</b> (a generalist role at a known Apple-heavy fleet). Confirm to promote into your ranked list, or dismiss.</p>
+          </div>
+        </div>
+
+        <sc-for list="{{ gems }}" as="g" hint-placeholder-count="3">
+          <div style="background:{{ g.cardBg }};border:1px dashed {{ g.cardBorder }};border-left:3px solid #B07D26;border-radius:10px;margin-bottom:11px;padding:16px 18px;opacity:{{ g.opacity }};">
+            <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px;">
+              <span style="color:#B07D26;font-size:13px;">◆</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#8A5E14;letter-spacing:0.08em;">HIDDEN GEM</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 8px;border-radius:5px;background:#F2E7CC;color:#8A5E14;border:1px solid #E3D2A8;letter-spacing:0.04em;">{{ g.subtype }}</span>
+              <span style="flex:1;"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 7px;border-radius:5px;background:{{ g.elig.bg }};color:{{ g.elig.color }};border:1px solid {{ g.elig.bd }};">{{ g.elig.label }}</span>
+            </div>
+
+            <div style="font-size:16px;font-weight:600;color:#211E18;">{{ g.title }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8A8475;margin-top:4px;">{{ g.metaLine }}</div>
+
+            <!-- why it surfaced -->
+            <div style="margin-top:13px;background:#FCFBF6;border:1px solid #ECE6D8;border-radius:9px;padding:13px 15px;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:7px;">{{ g.whyLabel }}</div>
+              <p style="margin:0 0 10px;font-size:13px;color:#3A352D;line-height:1.55;text-wrap:pretty;">{{ g.whyText }}</p>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <sc-for list="{{ g.matches }}" as="k" hint-placeholder-count="4">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:3px 8px;border-radius:6px;background:#E7F1E8;color:#0F6B3B;border:1px solid #C5DDCB;">{{ k }}</span>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:13px;margin-top:13px;flex-wrap:wrap;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7A7468;">projected fit</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:#3A352D;">~{{ g.fit }}<span style="font-size:10px;color:#B8B0A0;">/100</span></span>
+              <span style="flex:1;"></span>
+              <sc-if value="{{ g.decided }}" hint-placeholder-val="{{ false }}">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ g.decidedColor }};">{{ g.decidedLabel }}</span>
+              </sc-if>
+              <sc-if value="{{ g.undecided }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ g.onConfirm }}" style="border:none;cursor:pointer;padding:8px 15px;border-radius:7px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;">Confirm → promote</button>
+                <button onClick="{{ g.onDismiss }}" style="border:1px solid #E2DDD1;background:transparent;color:#97907F;cursor:pointer;padding:8px 15px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;">Dismiss</button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <!-- ===== SEARCH / WATCHLIST ===== -->
+      <sc-if value="{{ showSearch }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:9px;background:#FBF6E9;border:1px solid #E9DBB6;border-radius:9px;padding:10px 14px;margin-bottom:18px;max-width:760px;">
+          <span style="color:#B07D26;font-size:12px;">◈</span>
+          <span style="font-size:12.5px;color:#7A6A3E;">Seeded from your résumé. Add suggested terms from <b>Profile</b>, or edit freely here.</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:26px;max-width:660px;">
+          <!-- search terms -->
+          <div style="width:100%;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.08em;margin-bottom:13px;">SEARCH TERMS — GROUPED &amp; WEIGHTED</div>
+            <sc-for list="{{ termGroups }}" as="grp" hint-placeholder-count="4">
+              <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:10px;padding:14px 16px;margin-bottom:11px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;">
+                  <span style="font-size:13px;font-weight:600;color:#211E18;">{{ grp.name }}</span>
+                  <span style="flex:1;"></span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#97907F;">WEIGHT</span>
+                  <div style="display:flex;gap:3px;">
+                    <sc-for list="{{ grp.weightDots }}" as="w" hint-placeholder-count="3">
+                      <span style="width:9px;height:9px;border-radius:2px;background:{{ w.bg }};"></span>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;gap:7px;flex-wrap:wrap;">
+                  <sc-for list="{{ grp.terms }}" as="t" hint-placeholder-count="4">
+                    <span style="display:inline-flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:5px 10px;border-radius:7px;background:#F1EEE5;color:#3A352D;border:1px solid #E4DFD4;">
+                      {{ t.label }}
+                      <button onClick="{{ t.onRemove }}" style="border:none;background:transparent;color:#B8B0A0;cursor:pointer;padding:0;font-size:13px;line-height:1;">×</button>
+                    </span>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:7px;margin-top:11px;">
+                  <input value="{{ grp.inputValue }}" onInput="{{ grp.onInput }}" onKeyDown="{{ grp.onKey }}" placeholder="add a term to this group…" style="flex:1;border:1px solid #E4DFD4;background:#FBFAF6;border-radius:7px;padding:8px 11px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#211E18;outline:none;">
+                  <button onClick="{{ grp.onAdd }}" style="border:none;cursor:pointer;padding:8px 14px;border-radius:7px;background:#211E18;color:#F4F2EC;font-family:'IBM Plex Mono',monospace;font-size:11px;flex:0 0 auto;">+ add</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- watchlist + sources -->
+          <div style="width:100%;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.08em;margin-bottom:13px;">COMPANY WATCHLIST — DIRECT ATS PULL</div>
+            <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:10px;padding:7px 8px;margin-bottom:18px;">
+              <sc-for list="{{ watchlist }}" as="c" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;">
+                  <span style="width:7px;height:7px;border-radius:50%;background:{{ c.dot }};flex:0 0 auto;"></span>
+                  <span style="flex:1;font-size:13px;color:{{ c.nameColor }};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.name }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 7px;border-radius:5px;background:{{ c.srcBg }};color:{{ c.srcColor }};border:1px solid {{ c.srcBd }};flex:0 0 auto;">{{ c.src }}</span>
+                  <button onClick="{{ c.onPause }}" style="border:1px solid #E2DDD1;background:#F4F2EC;color:#6E685D;cursor:pointer;padding:3px 8px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;flex:0 0 auto;">{{ c.pauseLabel }}</button>
+                  <button onClick="{{ c.onRemove }}" title="Remove from watchlist" style="border:none;background:transparent;color:#B0A899;cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;flex:0 0 auto;">×</button>
+                </div>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ hasExcluded }}" hint-placeholder-val="{{ false }}">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.08em;margin-bottom:13px;">EXCLUDED COMPANIES — HIDDEN FROM ALL SOURCES</div>
+              <div style="background:#F6EAE3;border:1px solid #E6CBBE;border-radius:10px;padding:7px 8px;margin-bottom:18px;">
+                <sc-for list="{{ excludedList }}" as="x" hint-placeholder-count="1">
+                  <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#B0492B;flex:0 0 auto;"></span>
+                    <span style="flex:1;font-size:13px;color:#8A4A2C;">{{ x.name }}</span>
+                    <button onClick="{{ x.onUnmute }}" style="border:1px solid #E6CBBE;background:#FBFAF6;color:#8A4A2C;cursor:pointer;padding:3px 10px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;flex:0 0 auto;">un-mute</button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;letter-spacing:0.08em;margin-bottom:13px;">ACTIVE SOURCES — PLUGGABLE ADAPTERS</div>
+            <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:10px;padding:7px 8px;">
+              <sc-for list="{{ sourceList }}" as="s" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:7px;">
+                  <span style="width:34px;height:18px;border-radius:9px;background:{{ s.toggleBg }};position:relative;flex:0 0 auto;">
+                    <span style="position:absolute;top:2px;left:{{ s.knobLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.2);"></span>
+                  </span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;color:#211E18;">{{ s.name }}</div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#97907F;margin-top:1px;">{{ s.note }}</div>
+                  </div>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:{{ s.tagColor }};">{{ s.tag }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== PIPELINE ===== -->
+      <sc-if value="{{ showPipeline }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:13px;max-width:940px;">
+          <sc-for list="{{ pipelineCols }}" as="col" hint-placeholder-count="6">
+            <div style="background:#EFECE4;border:1px solid #E4DFD4;border-radius:12px;padding:13px 14px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px;">
+                <span style="width:8px;height:8px;border-radius:2px;background:{{ col.dot }};"></span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#3A352D;letter-spacing:0.05em;">{{ col.label }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39C8B;">{{ col.count }}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:9px;">
+                <sc-for list="{{ col.cards }}" as="card" hint-placeholder-count="2">
+                  <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:8px;padding:11px 12px;">
+                    <div style="font-size:13px;font-weight:600;color:#211E18;line-height:1.3;">{{ card.title }}</div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8475;margin-top:4px;">{{ card.company }}</div>
+                    <div style="display:flex;align-items:center;gap:7px;margin-top:9px;">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;padding:1px 6px;border-radius:4px;background:{{ card.elig.bg }};color:{{ card.elig.color }};border:1px solid {{ card.elig.bd }};">{{ card.elig.label }}</span>
+                      <span style="flex:1;"></span>
+                      <button onClick="{{ card.onPrev }}" title="Move up" style="border:1px solid #E2DDD1;background:#F4F2EC;color:#97907F;cursor:pointer;width:24px;height:24px;border-radius:5px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1;padding:0;">↑</button>
+                      <button onClick="{{ card.onNext }}" title="Move down" style="border:1px solid #E2DDD1;background:#F4F2EC;color:#6E685D;cursor:pointer;width:24px;height:24px;border-radius:5px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1;padding:0;">↓</button>
+                      <button onClick="{{ card.onRemove }}" title="Remove from pipeline" style="border:1px solid #E6CBBE;background:#F6EAE3;color:#B0492B;cursor:pointer;width:24px;height:24px;border-radius:5px;font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1;padding:0;">×</button>
+                    </div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ col.isEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="grid-column:1/-1;border:1px dashed #DCD6C9;border-radius:8px;padding:13px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#B0A899;letter-spacing:0.03em;">nothing here yet</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+    </div>
+  </main>
+
+  <!-- ============ ASSISTANT RAIL ============ -->
+  <sc-if value="{{ assistantOpen }}" hint-placeholder-val="{{ true }}">
+    <aside data-rr="rail" style="width:362px;flex:0 0 362px;background:#EFECE4;border-left:1px solid #E2DDD1;display:flex;flex-direction:column;min-height:0;">
+      <div style="padding:15px 17px;border-bottom:1px solid #E2DDD1;display:flex;align-items:center;gap:11px;flex:0 0 auto;">
+        <span style="width:32px;height:32px;border-radius:9px;background:#1E8A4F;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle></svg></span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:0.06em;color:#211E18;">RADAR</div>
+          
+        </div>
+        <button onClick="{{ onToggleAssistant }}" style="border:none;background:transparent;color:#A39C8B;cursor:pointer;font-size:16px;line-height:1;padding:4px;">✕</button>
+      </div>
+
+      <div data-rr="chat" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:13px;min-height:0;">
+        <sc-for list="{{ messages }}" as="m" hint-placeholder-count="2">
+          <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:9px;align-items:flex-start;">
+              <span style="width:24px;height:24px;border-radius:7px;background:#E7F1E8;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#1E8A4F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle></svg></span>
+              <div style="flex:1;min-width:0;">
+                <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:3px 12px 12px 12px;padding:11px 13px;font-size:13px;line-height:1.55;color:#3A352D;text-wrap:pretty;">{{ m.text }}</div>
+                <sc-if value="{{ m.showProposals }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                    <sc-for list="{{ proposals }}" as="p" hint-placeholder-count="5">
+                      <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-left:3px solid {{ p.accent }};border-radius:9px;padding:11px 12px;opacity:{{ p.opacity }};">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;padding:2px 7px;border-radius:5px;background:{{ p.tagBg }};color:{{ p.tagColor }};border:1px solid {{ p.tagBd }};letter-spacing:0.05em;">{{ p.kind }}</span>
+                        <div style="font-size:12.5px;font-weight:600;color:#211E18;margin-top:7px;">{{ p.title }}</div>
+                        <p style="margin:5px 0 0;font-size:11.5px;color:#7A7468;line-height:1.5;">{{ p.rationale }}</p>
+                        <div style="display:flex;align-items:center;gap:7px;margin-top:10px;">
+                          <sc-if value="{{ p.pending }}" hint-placeholder-val="{{ true }}">
+                            <button onClick="{{ p.onApprove }}" style="border:none;cursor:pointer;padding:6px 13px;border-radius:6px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;">✓ Approve</button>
+                            <button onClick="{{ p.onDismiss }}" style="border:1px solid #E2DDD1;background:transparent;color:#97907F;cursor:pointer;padding:6px 13px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;">Dismiss</button>
+                          </sc-if>
+                          <sc-if value="{{ p.resolved }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:{{ p.resolvedColor }};">{{ p.resolvedLabel }}</span>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;justify-content:flex-end;">
+              <div style="max-width:82%;background:#E7F1E8;border:1px solid #C5DDCB;border-radius:12px 3px 12px 12px;padding:10px 13px;font-size:13px;line-height:1.5;color:#1F4A32;">{{ m.text }}</div>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+
+      <div style="padding:0 14px 10px;display:flex;gap:7px;flex-wrap:wrap;flex:0 0 auto;">
+        <sc-for list="{{ suggested }}" as="s" hint-placeholder-count="4">
+          <button onClick="{{ s.onClick }}" style="border:1px solid #E4DFD4;background:#FBFAF6;color:#5E594E;cursor:pointer;padding:6px 11px;border-radius:16px;font-size:11.5px;">{{ s.label }}</button>
+        </sc-for>
+      </div>
+
+      <div style="padding:11px 14px;border-top:1px solid #E2DDD1;display:flex;gap:8px;flex:0 0 auto;">
+        <input value="{{ chatInput }}" onInput="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="Ask about your roles…" style="flex:1;border:1px solid #E4DFD4;background:#FBFAF6;border-radius:9px;padding:10px 13px;font-size:13px;color:#211E18;outline:none;">
+        <button onClick="{{ onSend }}" style="width:40px;border:none;cursor:pointer;border-radius:9px;background:#1E8A4F;color:#fff;font-size:15px;flex:0 0 auto;">↑</button>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ assistantClosed }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ onToggleAssistant }}" style="position:fixed;right:22px;bottom:22px;z-index:45;display:flex;align-items:center;gap:9px;border:none;cursor:pointer;padding:13px 19px;border-radius:30px;background:#1E8A4F;color:#fff;box-shadow:0 6px 24px rgba(30,138,79,0.34);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.03em;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18a2 2 0 0 0-4 0m9-7l-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11m-3 0h20"></path><circle cx="17" cy="18" r="3"></circle><circle cx="7" cy="18" r="3"></circle></svg>Ask Radar
+      <sc-if value="{{ hasQueue }}" hint-placeholder-val="{{ false }}"><span style="background:#fff;color:#0F6B3B;font-size:10px;min-width:17px;text-align:center;padding:1px 5px;border-radius:9px;">{{ queueCount }}</span></sc-if>
+    </button>
+  </sc-if>
+
+  <!-- ============ AUTH GATE ============ -->
+  <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:60;background:#F1EEE6;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'IBM Plex Sans',sans-serif;overflow:auto;">
+      <div style="width:100%;max-width:406px;">
+        <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:22px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1.5px solid #211E18;border-radius:6px;transform:rotate(45deg);">
+            <span style="width:8px;height:8px;background:#1E8A4F;border-radius:1px;"></span>
+          </span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;letter-spacing:0.14em;">ROLE&nbsp;RADAR</span>
+        </div>
+
+        <div style="background:#FBFAF6;border:1px solid #E4DFD4;border-radius:16px;padding:30px 28px;box-shadow:0 8px 40px rgba(33,30,24,0.07);">
+
+          <!-- SIGN IN -->
+          <sc-if value="{{ authSignin }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size:19px;font-weight:600;color:#211E18;">Sign in to your cockpit</div>
+            <div style="font-size:13px;color:#7A7468;margin-top:5px;margin-bottom:22px;">Your private job-hunt instrument.</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:6px;">EMAIL</div>
+            <input value="{{ authEmail }}" onInput="{{ onAuthEmail }}" type="email" placeholder="you@example.com" style="width:100%;border:1px solid #E4DFD4;background:#FFFDF9;border-radius:9px;padding:11px 13px;font-size:14px;color:#211E18;outline:none;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;margin-bottom:6px;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.06em;flex:1;">PASSWORD</span>
+              <button onClick="{{ onForgot }}" style="border:none;background:transparent;color:#1E8A4F;cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:0;">forgot?</button>
+            </div>
+            <input value="{{ authPassword }}" onInput="{{ onAuthPassword }}" type="password" placeholder="••••••••" style="width:100%;border:1px solid #E4DFD4;background:#FFFDF9;border-radius:9px;padding:11px 13px;font-size:14px;color:#211E18;outline:none;margin-bottom:20px;">
+            <button onClick="{{ onSignIn }}" style="width:100%;border:none;cursor:pointer;padding:12px;border-radius:9px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:0.04em;box-shadow:0 1px 0 #15623A;">Sign in →</button>
+            <div style="display:flex;align-items:center;gap:12px;margin:18px 0;">
+              <span style="flex:1;height:1px;background:#E8E4DA;"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B0A899;">OR</span>
+              <span style="flex:1;height:1px;background:#E8E4DA;"></span>
+            </div>
+            <button onClick="{{ onSignIn }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px;border:1px solid #E4DFD4;background:#FFFDF9;cursor:pointer;padding:11px;border-radius:9px;color:#3A352D;font-size:13px;font-weight:500;">
+              <span style="width:18px;height:18px;border-radius:50%;background:#EFEBE1;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E685D;">G</span>
+              Continue with Google
+            </button>
+            <div style="text-align:center;margin-top:20px;font-size:12.5px;color:#7A7468;">New here? <button onClick="{{ onShowSignup }}" style="border:none;background:transparent;color:#1E8A4F;cursor:pointer;font-size:12.5px;font-weight:600;padding:0;">Create an account</button></div>
+          </sc-if>
+
+          <!-- SIGN UP -->
+          <sc-if value="{{ authSignup }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:19px;font-weight:600;color:#211E18;">Create your account</div>
+            <div style="font-size:13px;color:#7A7468;margin-top:5px;margin-bottom:22px;">Set up your own cockpit in under a minute.</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:6px;">DISPLAY NAME</div>
+            <input value="{{ authName }}" onInput="{{ onAuthName }}" placeholder="Alex Specialist" style="width:100%;border:1px solid #E4DFD4;background:#FFFDF9;border-radius:9px;padding:11px 13px;font-size:14px;color:#211E18;outline:none;margin-bottom:16px;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:6px;">EMAIL</div>
+            <input value="{{ authEmail }}" onInput="{{ onAuthEmail }}" type="email" placeholder="you@example.com" style="width:100%;border:1px solid #E4DFD4;background:#FFFDF9;border-radius:9px;padding:11px 13px;font-size:14px;color:#211E18;outline:none;margin-bottom:16px;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:6px;">PASSWORD</div>
+            <input value="{{ authPassword }}" onInput="{{ onAuthPassword }}" type="password" placeholder="8+ characters" style="width:100%;border:1px solid #E4DFD4;background:#FFFDF9;border-radius:9px;padding:11px 13px;font-size:14px;color:#211E18;outline:none;margin-bottom:8px;">
+            <div style="font-size:11px;color:#97907F;margin-bottom:20px;">At least 8 characters with a number — enforced by Cognito.</div>
+            <button onClick="{{ onCreateAccount }}" style="width:100%;border:none;cursor:pointer;padding:12px;border-radius:9px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:0.04em;box-shadow:0 1px 0 #15623A;">Create account →</button>
+            <div style="text-align:center;margin-top:20px;font-size:12.5px;color:#7A7468;">Have an account? <button onClick="{{ onShowSignin }}" style="border:none;background:transparent;color:#1E8A4F;cursor:pointer;font-size:12.5px;font-weight:600;padding:0;">Sign in</button></div>
+          </sc-if>
+
+          <!-- CONFIRM CODE -->
+          <sc-if value="{{ authConfirm }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:19px;font-weight:600;color:#211E18;">Check your email</div>
+            <div style="font-size:13px;color:#7A7468;margin-top:5px;margin-bottom:22px;line-height:1.55;">We sent a 6-digit code to <b style="color:#3A352D;">{{ authEmailShown }}</b>. Enter it to verify your account.</div>
+            <input value="{{ authCode }}" onInput="{{ onAuthCode }}" maxlength="6" inputmode="numeric" placeholder="••••••" style="width:100%;border:1px solid #E4DFD4;background:#FFFDF9;border-radius:9px;padding:14px;font-family:'IBM Plex Mono',monospace;font-size:24px;letter-spacing:0.45em;text-align:center;color:#211E18;outline:none;margin-bottom:20px;">
+            <button onClick="{{ onVerify }}" style="width:100%;border:none;cursor:pointer;padding:12px;border-radius:9px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:0.04em;box-shadow:0 1px 0 #15623A;">Verify &amp; enter →</button>
+            <div style="text-align:center;margin-top:20px;font-size:12.5px;color:#7A7468;">Didn't get it? <button onClick="{{ onCreateAccount }}" style="border:none;background:transparent;color:#1E8A4F;cursor:pointer;font-size:12.5px;font-weight:600;padding:0;">Resend code</button> · <button onClick="{{ onShowSignin }}" style="border:none;background:transparent;color:#97907F;cursor:pointer;font-size:12.5px;padding:0;">Back</button></div>
+          </sc-if>
+
+          <!-- FORGOT -->
+          <sc-if value="{{ authForgot }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:19px;font-weight:600;color:#211E18;">Reset your password</div>
+            <div style="font-size:13px;color:#7A7468;margin-top:5px;margin-bottom:22px;">Enter your email and we'll send a reset link.</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.06em;margin-bottom:6px;">EMAIL</div>
+            <input value="{{ authEmail }}" onInput="{{ onAuthEmail }}" type="email" placeholder="you@example.com" style="width:100%;border:1px solid #E4DFD4;background:#FFFDF9;border-radius:9px;padding:11px 13px;font-size:14px;color:#211E18;outline:none;margin-bottom:16px;">
+            <sc-if value="{{ authMsgShown }}" hint-placeholder-val="{{ false }}">
+              <div style="background:#E7F1E8;border:1px solid #C5DDCB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#0F6B3B;margin-bottom:16px;">{{ authMsg }}</div>
+            </sc-if>
+            <button onClick="{{ onSendReset }}" style="width:100%;border:none;cursor:pointer;padding:12px;border-radius:9px;background:#1E8A4F;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:0.04em;box-shadow:0 1px 0 #15623A;">Send reset link</button>
+            <div style="text-align:center;margin-top:20px;font-size:12.5px;"><button onClick="{{ onShowSignin }}" style="border:none;background:transparent;color:#97907F;cursor:pointer;font-size:12.5px;padding:0;">← Back to sign in</button></div>
+          </sc-if>
+
+        </div>
+        <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39C8B;letter-spacing:0.03em;">Secured by AWS Cognito · Amplify Gen 2</div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    view: 'recommend',
+    running: false,
+    runSources: [],
+    runDone: false,
+    runSummary: '',
+    expanded: { onepass: true },
+    canadaOnly: true,
+    hideBelow: false,
+    sortBy: 'fit',
+    dismissed: {},
+    overrides: {},
+    watchPaused: {},
+    watchRemoved: {},
+    excludedCos: {},
+    gemDecisions: {},
+    pipeline: { onepass: 'applied', jamf: 'interview', ninja: 'interested' },
+    termRemoved: {},
+    newTerm: '',
+    newTermByGroup: {},
+    summary: { fetched: 31, kept: 23, phantoms: 2, gems: 3, when: '14m ago' },
+    resumeText: "SENIOR IT SPECIALIST — Winnipeg, MB, Canada\n25+ years in enterprise IT, specializing in Apple/macOS endpoint management.\n\nCORE\n• Jamf Pro administration across a 4,000-Mac fleet — zero-touch enrollment, app lifecycle, policy.\n• Microsoft Intune co-management; Windows + macOS compliance baselines.\n• Identity & access: Okta SSO rollout, SCIM provisioning, conditional access.\n• Endpoint security: CIS macOS baselines, FileVault, EDR deployment & incident response.\n• Software build: ships production React/TypeScript apps on AWS Amplify Gen 2.\n\nEXPERIENCE\n• Led enterprise endpoint deployments end-to-end for 10+ years.\n• Two-time conference speaker (JNUC, MacAdmins).\n\nELIGIBILITY\n• Canadian citizen, based in Winnipeg, MB. Eligible to work in Canada.",
+    linkedinText: '',
+    parsed: true,
+    weightOverride: {},
+    profileTermsAdded: {},
+    profileCosAdded: {},
+    authed: true,
+    authMode: 'signin',
+    authEmail: '', authPassword: '', authName: '', authCode: '', authMsg: '',
+    accountMenuOpen: false,
+    acctName: 'Sr. IT Specialist',
+    acctEmail: 'you@icloud.com',
+    radarStage: 4,
+    autonomy: 'balanced',
+    radarPaused: false,
+    proposalState: {},
+    assistantOpen: true,
+    chatInput: '',
+    chat: [
+      { role: 'bot', text: "Hi — I'm Radar. I send scouts across your sources and bring back what fits. I can walk you through your matches, explain any fit score, flag phantoms, or tee up changes for your approval. Where do you want to start?" },
+      { role: 'bot', text: "Heads up: my scouts brought back a few moves for your review. Approve the ones you like — I only ever act on a yes.", showProposals: true },
+    ],
+  };
+
+  // ---------- static data ----------
+  DIMS = [
+    ['macos', 'macOS · Jamf · endpoint'],
+    ['intune', 'Intune · cross-platform'],
+    ['identity', 'Identity · SSO · Okta'],
+    ['security', 'Endpoint security'],
+    ['build', 'AI · software build'],
+    ['client', 'Client-facing'],
+    ['level', 'Level fit'],
+    ['eligible', 'Canada eligibility'],
+  ];
+
+  VERDICTS = {
+    match: { label: 'MATCH', color: '#0F6B3B', bg: '#E7F1E8', bd: '#C5DDCB' },
+    reach: { label: 'REACH', color: '#8A5E14', bg: '#F4ECDA', bd: '#E3D2A8' },
+    below: { label: 'BELOW LEVEL', color: '#8A4A2C', bg: '#F1E6DF', bd: '#DCC6B8' },
+    mismatch: { label: 'DOMAIN MISMATCH', color: '#8A4A2C', bg: '#F1E6DF', bd: '#DCC6B8' },
+  };
+
+  ROLES = [
+    {
+      id: 'onepass', title: 'Client Platform Engineer (Apple)', company: '1Password',
+      location: 'Remote · Canada', posted: '2d', days: 2, source: 'Greenhouse', score: 94, verdict: 'match',
+      dims: { macos: 'hit', intune: 'hit', identity: 'hit', security: 'hit', build: 'partial', client: 'partial', level: 'hit', eligible: 'hit' },
+      n: { macos: 'Apple fleet at scale — the entire job.', identity: 'SSO/Okta integration explicitly listed.', build: 'Some internal tooling, not core.', client: 'Cross-team partnering, lightly client-facing.', level: 'IC / tech-lead — right at your level.' },
+      chips: [['+ Deep macOS/Jamf', 'good'], ['+ Identity & SSO', 'good'], ['+ Canada-eligible', 'good']],
+      sentence: 'Bullseye. This is your exact lane — Apple fleet at scale with Jamf and identity baked in, pitched at IC/tech-lead level. The only stretch is how much net-new React/AWS build you would actually get.',
+      elig: { state: 'ca', label: 'CA ✓', detail: "Greenhouse location field reads “Canada (Remote)”. Confirmed Canada-eligible — high confidence." },
+    },
+    {
+      id: 'jamf', title: 'Senior Endpoint Engineer, macOS', company: 'Jamf',
+      location: 'Remote · Canada', posted: '5d', days: 5, source: 'Lever', score: 91, verdict: 'match',
+      dims: { macos: 'hit', intune: 'partial', identity: 'partial', security: 'hit', build: 'thin', client: 'partial', level: 'hit', eligible: 'hit' },
+      n: { macos: 'Pure Jamf-native macOS engineering.', security: 'Hardening + baseline work front and centre.', build: 'Little software-build scope here.', level: 'Senior IC — squarely at level.' },
+      chips: [['+ Jamf-native', 'good'], ['+ Endpoint security', 'good'], ['− Light on build', 'warn']],
+      sentence: 'Working at the source. Pure macOS endpoint engineering at your level, with the security-baseline work right in your wheelhouse. Cross-platform/Intune is secondary and there is little net software-build.',
+      elig: { state: 'ca', label: 'CA ✓', detail: "Lever location “Remote, Canada”. Confirmed Canada-eligible." },
+    },
+    {
+      id: 'wealth', title: 'Identity & Access Engineer (Okta)', company: 'Wealthsimple',
+      location: 'Toronto · Remote CA', posted: '1d', days: 1, source: 'Ashby', score: 88, verdict: 'match',
+      dims: { macos: 'partial', intune: 'partial', identity: 'hit', security: 'hit', build: 'partial', client: 'thin', level: 'hit', eligible: 'hit' },
+      n: { identity: 'Okta/SSO is the centre of gravity.', macos: 'Device work is present but not primary.', security: 'Conditional-access + posture work.', level: 'Senior IC, identity-forward.' },
+      chips: [['+ Identity/SSO core', 'good'], ['+ Security', 'good'], ['− Less endpoint-centric', 'warn']],
+      sentence: 'Strong adjacent match. Leans identity/SSO over device management, so you would flex your Okta depth more than Jamf. At-level IC role, Canada-based — a good fit if you want to pivot toward identity.',
+      elig: { state: 'ca', label: 'CA ✓', detail: "Ashby location “Canada — Remote / Toronto”. Confirmed Canada-eligible." },
+    },
+    {
+      id: 'ninja', title: 'Solutions Engineer, Endpoint', company: 'NinjaOne',
+      location: 'Remote · Canada', posted: '3d', days: 3, source: 'Greenhouse', score: 86, verdict: 'match',
+      dims: { macos: 'hit', intune: 'hit', identity: 'partial', security: 'hit', build: 'partial', client: 'hit', level: 'hit', eligible: 'hit' },
+      n: { client: 'Client-facing demos/POCs are the job.', macos: 'Cross-platform incl. strong Apple story.', build: 'Light scripting/automation for demos.', level: 'Senior pre-sales — at level.' },
+      chips: [['+ Client-facing', 'good'], ['+ Cross-platform endpoint', 'good'], ['+ Speaker credibility fits', 'good']],
+      sentence: 'Pre-sales done right. Client-facing endpoint expertise is the role — your consulting instinct and conference-speaking translate directly. Broad MDM coverage; less hands-on engineering, more demo and POC.',
+      elig: { state: 'ca', label: 'CA ✓', detail: "Greenhouse location “Canada (Remote)”. Confirmed Canada-eligible." },
+    },
+    {
+      id: 'shopify', title: 'Staff Client Platform Engineer', company: 'Shopify',
+      location: 'Remote · Canada', posted: '6d', days: 6, source: 'Greenhouse', score: 84, verdict: 'reach',
+      dims: { macos: 'hit', intune: 'hit', identity: 'hit', security: 'hit', build: 'hit', client: 'partial', level: 'partial', eligible: 'hit' },
+      n: { build: 'They genuinely value the React/AWS side.', level: '“Staff” implies broad org scope — a stretch.', macos: 'Large heterogeneous fleet.' },
+      chips: [['+ Hits every dimension', 'good'], ['+ AI/build valued', 'good'], ['− Staff scope is a stretch', 'warn']],
+      sentence: 'A reach worth taking. The stack matches you perfectly and they actually reward the software-build side. “Staff” implies org-wide influence beyond your current scope — a stretch on scale and leadership, not on skills.',
+      elig: { state: 'ca', label: 'CA ✓', detail: "Greenhouse location “Canada (Remote)”. Confirmed Canada-eligible." },
+    },
+    {
+      id: 'hootsuite', title: 'Senior Systems Engineer (Apple Fleet)', company: 'Hootsuite',
+      location: 'Vancouver · Remote CA', posted: 'seen 94d', days: 94, source: 'Eluta RSS', score: 82, verdict: 'match',
+      dims: { macos: 'hit', intune: 'partial', identity: 'partial', security: 'partial', build: 'partial', client: 'thin', level: 'hit', eligible: 'hit' },
+      n: { macos: 'Clean Apple-fleet match on paper.', level: 'Senior IC — at level.' },
+      chips: [['+ Apple fleet', 'good'], ['+ At-level', 'good'], ['⚠ Likely phantom', 'bad']],
+      sentence: "Skills-wise a clean match — but this one has appeared on nearly every run for over three months. Strong signal it is an evergreen req that is not really hiring. Worth a low-effort ping at most, not a serious application until it shows movement.",
+      elig: { state: 'ca', label: 'CA ✓', detail: "Eluta RSS location “Vancouver, BC / Remote Canada”. Canada-eligible." },
+      phantom: { seen: 6, days: 94, runs: [true, true, false, true, true, true, false, true] },
+    },
+    {
+      id: 'pcc', title: 'EUC Engineer, Intune', company: 'PointClickCare',
+      location: 'Mississauga · Hybrid', posted: '4d', days: 4, source: 'Workday', score: 79, verdict: 'match',
+      dims: { macos: 'thin', intune: 'hit', identity: 'partial', security: 'partial', build: 'thin', client: 'partial', level: 'hit', eligible: 'hit' },
+      n: { intune: 'Intune / modern-workplace is the core.', macos: 'macOS is a small slice of the fleet.', level: 'At level, but Windows-weighted.' },
+      chips: [['+ Intune/EUC core', 'good'], ['− macOS minor here', 'warn'], ['− Hybrid (Mississauga)', 'warn']],
+      sentence: 'Solid but Windows-leaning. Intune and modern-workplace work you can do in your sleep, but macOS is a small slice — you would use less of your Apple depth. Hybrid in Mississauga, so weigh the commute/relocation angle.',
+      elig: { state: 'ca', label: 'CA · HYBRID', detail: "Workday location “Mississauga, ON”. Canada-eligible, but on-site/hybrid — not fully remote." },
+    },
+    {
+      id: 'absolute', title: 'Endpoint Security Analyst', company: 'Absolute Security',
+      location: 'Vancouver · Remote CA', posted: '8d', days: 8, source: 'Lever', score: 76, verdict: 'match',
+      dims: { macos: 'partial', intune: 'partial', identity: 'partial', security: 'hit', build: 'thin', client: 'partial', level: 'partial', eligible: 'hit' },
+      n: { security: 'Baseline/posture work fits well.', level: '“Analyst” reads a notch below you.', macos: 'Cross-platform, shallow on Apple depth.' },
+      chips: [['+ Security baselines', 'good'], ['− “Analyst” reads junior', 'warn'], ['− Light macOS depth', 'warn']],
+      sentence: 'Security-forward, slightly under. The endpoint-security baseline work fits, but the “Analyst” framing reads a notch below your level and spans platforms broadly. Decent if the real team scope is bigger than the title suggests.',
+      elig: { state: 'ca', label: 'CA ✓', detail: "Lever location “Vancouver / Remote Canada”. Canada-eligible." },
+    },
+    {
+      id: 'coveo', title: 'IT Support Specialist II', company: 'Coveo',
+      location: 'Québec City · Hybrid', posted: '2d', days: 2, source: 'Eluta RSS', score: 48, verdict: 'below',
+      dims: { macos: 'partial', intune: 'thin', identity: 'thin', security: 'thin', build: 'na', client: 'partial', level: 'thin', eligible: 'hit' },
+      n: { level: 'Tier-2 support — well below your level.', macos: 'Mac-heavy office, but hands-off depth.', build: 'No software-build component.' },
+      chips: [['− Below your level', 'bad'], ['− Help-desk scope', 'warn'], ['+ Apple-friendly shop', 'good']],
+      sentence: 'Below the line. This is tier-2 support, not engineering — you would be over-qualified and under-utilised, so it is down-ranked. The one upside: Coveo runs a Mac-heavy office, which confirms it as a watchlist target.',
+      elig: { state: 'ca', label: 'CA ✓', detail: "Eluta RSS location “Québec City / Hybrid”. Canada-eligible." },
+      down: true,
+    },
+    {
+      id: 'telus', title: 'Network Infrastructure Engineer', company: 'TELUS',
+      location: 'Calgary · Hybrid', posted: '7d', days: 7, source: 'Eluta RSS', score: 31, verdict: 'mismatch',
+      dims: { macos: 'na', intune: 'na', identity: 'thin', security: 'partial', build: 'na', client: 'thin', level: 'hit', eligible: 'hit' },
+      n: { security: 'Some network-security overlap only.', macos: 'No endpoint/Apple content.', level: 'At level, wrong specialty.' },
+      chips: [['− Networking-core', 'bad'], ['− Domain mismatch', 'bad']],
+      sentence: 'Wrong domain. Routing, switching and datacentre networking — adjacent to IT but not your endpoint/Apple specialty. At level and Canada-based, but the day-to-day would not use your strengths. Down-ranked.',
+      elig: { state: 'ca', label: 'CA ✓', detail: "Eluta RSS location “Calgary, AB / Hybrid”. Canada-eligible." },
+      down: true,
+    },
+    {
+      id: 'tailscale', title: 'Endpoint Management Engineer', company: 'Tailscale',
+      location: 'Remote · US only', posted: '1d', days: 1, source: 'Greenhouse', score: 73, verdict: 'match',
+      dims: { macos: 'hit', intune: 'hit', identity: 'hit', security: 'partial', build: 'partial', client: 'partial', level: 'hit', eligible: 'us' },
+      n: { macos: 'Strong cross-platform endpoint fit.', identity: 'Device identity + SSO work.', eligible: 'Posting requires US work authorization.' },
+      chips: [['✕ US-authorization only', 'bad'], ['+ Great skill fit otherwise', 'good']],
+      sentence: 'So close, wrong country. The role itself is a strong fit, but the posting requires US work authorization — Greenhouse location reads “United States (Remote)”. Flagged ineligible. Keep Tailscale on your watchlist for a future Canada/global req.',
+      elig: { state: 'us', label: 'US ONLY', detail: "Greenhouse location “United States (Remote)”. Requires US authorization — override only if you hold it." },
+      down: true,
+    },
+  ];
+
+  GEMS = [
+    {
+      id: 'benevity', title: 'Modern Workplace Lead', company: 'Benevity',
+      location: 'Calgary · Remote CA', source: 'Greenhouse', subtype: 'CONTENT MATCH', fit: 85,
+      whyLabel: "WHY IT SURFACED — TITLE MISSED YOUR TERMS",
+      whyText: "Your terms never mention “Modern Workplace”, so a title search skips it entirely. But the description is ~78% your stack and reads like an endpoint-lead role wearing a generic title — at or slightly above your level.",
+      matches: ['Jamf', 'Intune', 'macOS baseline', 'Okta', 'Conditional Access', 'endpoint'],
+      elig: { state: 'ca', label: 'CA ✓' },
+    },
+    {
+      id: 'dialpad', title: 'Technical Implementation Consultant', company: 'Dialpad',
+      location: 'Remote · Canada', source: 'Ashby', subtype: 'CONTENT MATCH', fit: 74,
+      whyLabel: "WHY IT SURFACED — TITLE MISSED YOUR TERMS",
+      whyText: "Doesn't match any “engineer” term you search — but the JD is endpoint rollouts and MDM onboarding for enterprise clients. Your consulting + speaking background fits; less deep engineering, more delivery.",
+      matches: ['MDM', 'device onboarding', 'SSO', 'client-facing'],
+      elig: { state: 'ca', label: 'CA ✓' },
+    },
+    {
+      id: 'clio', title: 'IT Operations Generalist', company: 'Clio',
+      location: 'Burnaby · Remote CA', source: 'Lever', subtype: 'COMPANY SIGNAL', fit: 71,
+      whyLabel: "WHY IT SURFACED — COMPANY FLEET SIGNAL",
+      whyText: "The title is broad and the JD is vague — but Clio is a known Jamf shop running a ~2,000-device Apple-heavy fleet. The company profile says your skills would dominate here. Worth a look to see if the role can be shaped toward endpoint.",
+      matches: ['Apple-heavy fleet', 'Known Jamf customer', '~2,000 devices'],
+      elig: { state: 'ca', label: 'CA ✓' },
+    },
+  ];
+
+  TERM_GROUPS = [
+    { name: 'Apple / endpoint', weight: 3, terms: ['macOS engineer', 'Apple endpoint', 'Jamf', 'MDM', 'client platform engineering'] },
+    { name: 'Cross-platform / EUC', weight: 2, terms: ['Intune', 'EUC', 'modern workplace', 'endpoint management'] },
+    { name: 'Identity & security', weight: 2, terms: ['SSO', 'Okta', 'identity', 'endpoint security', 'conditional access'] },
+    { name: 'Client-facing', weight: 2, terms: ['solutions engineer', 'implementation engineer', 'pre-sales engineer', 'sales engineer'] },
+  ];
+
+  WATCHLIST = [
+    ['Jamf', 'Lever'], ['1Password', 'Greenhouse'], ['NinjaOne', 'Greenhouse'], ['Tailscale', 'Greenhouse'],
+    ['Shopify', 'Greenhouse'], ['Wealthsimple', 'Ashby'], ['Clio', 'Lever'], ['Benevity', 'Greenhouse'],
+    ['Dialpad', 'Ashby'], ['Absolute Security', 'Lever'], ['PointClickCare', 'Workday'], ['Hootsuite', 'RSS'],
+    ['Province of Manitoba', 'Workday'], ['University of Manitoba', 'Workday'],
+  ];
+
+  SOURCES = [
+    { name: 'Greenhouse', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
+    { name: 'Lever', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
+    { name: 'Ashby', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
+    { name: 'Workday', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
+    { name: 'Eluta.ca', note: 'Sanctioned RSS / OpenSearch · Canada', tag: 'ACTIVE', on: true },
+    { name: 'We Work Remotely', note: 'RSS · remote-first', tag: 'ACTIVE', on: true },
+    { name: 'Remotive', note: 'JSON · remote-first', tag: 'OFF', on: false },
+    { name: 'Job Bank (Canada)', note: 'Gov of Canada · sanctioned XML feed', tag: 'ACTIVE', on: true },
+    { name: 'Adzuna', note: 'Sanctioned API · Canada-filtered aggregate', tag: 'ACTIVE', on: true },
+    { name: 'Remote OK', note: 'JSON API · remote-first', tag: 'OFF', on: false },
+    { name: 'Hacker News · Who is hiring', note: 'HN Algolia API · gem feeder', tag: 'OFF', on: false },
+    { name: 'LinkedIn', note: 'Manual — paste roles from email alerts', tag: 'MANUAL', on: true },
+  ];
+
+  RUN_SRC = [
+    { name: 'Greenhouse', detail: 'ATS JSON · 12 watchlist companies', count: '8 roles', kind: 'auto' },
+    { name: 'Lever', detail: 'ATS JSON · watchlist', count: '4 roles', kind: 'auto' },
+    { name: 'Ashby', detail: 'ATS JSON · watchlist', count: '3 roles', kind: 'auto' },
+    { name: 'Workday', detail: 'ATS JSON · watchlist', count: '2 roles', kind: 'auto' },
+    { name: 'Eluta.ca RSS', detail: 'Sanctioned Canadian aggregate', count: '9 roles', kind: 'auto' },
+    { name: 'We Work Remotely', detail: 'Remote-first RSS', count: '3 roles', kind: 'auto' },
+    { name: 'Remotive', detail: 'Remote-first JSON', count: '2 roles', kind: 'auto' },
+    { name: 'LinkedIn', detail: 'Manual alert inbox — no automated pull', count: 'manual', kind: 'manual' },
+  ];
+
+  PIPE_STAGES = [
+    ['new', 'NEW', '#97907F'], ['interested', 'INTERESTED', '#8A5E14'], ['applied', 'APPLIED', '#1E8A4F'],
+    ['interview', 'INTERVIEW', '#0F6B3B'], ['offer', 'OFFER', '#6B4FA8'], ['closed', 'CLOSED', '#B8B0A0'],
+  ];
+
+  STRENGTHS = [
+    { key: 'macos', label: 'macOS · Jamf · endpoint', conf: 'HIGH', weight: 3, bar: 96, ev: 'Jamf Pro admin across a 4,000-Mac fleet — zero-touch enrollment, app lifecycle, policy.' },
+    { key: 'intune', label: 'Intune · cross-platform MDM', conf: 'HIGH', weight: 2, bar: 82, ev: 'Intune co-management; Windows + macOS compliance baselines.' },
+    { key: 'identity', label: 'Identity · SSO · Okta', conf: 'HIGH', weight: 2, bar: 80, ev: 'Okta SSO rollout, SCIM provisioning, conditional access policies.' },
+    { key: 'security', label: 'Endpoint security · baselines', conf: 'HIGH', weight: 2, bar: 78, ev: 'CIS macOS baselines, FileVault, EDR deployment & incident response.' },
+    { key: 'build', label: 'AI · software build (React/TS/AWS)', conf: 'RARE', weight: 2, bar: 70, ev: 'Ships production React/TypeScript apps on AWS Amplify Gen 2.' },
+    { key: 'client', label: 'Client-facing · consulting', conf: 'MED', weight: 1, bar: 62, ev: 'Two-time conference speaker (JNUC, MacAdmins); vendor & consulting engagements.' },
+    { key: 'level', label: 'Seniority', conf: 'HIGH', weight: 1, bar: 90, ev: '25+ years; led enterprise endpoint deployments end-to-end.' },
+  ];
+
+  SUG_TERMS = [
+    { label: 'client platform engineer', added: true },
+    { label: 'Jamf', added: true },
+    { label: 'conditional access', added: true },
+    { label: 'endpoint security engineer', added: false },
+    { label: 'Okta administrator', added: false },
+    { label: 'Apple device management', added: false },
+    { label: 'EUC engineer', added: false },
+    { label: 'macOS systems engineer', added: false },
+  ];
+
+  GUARDRAILS = ['Never auto-applies', 'No outreach or messages', 'Canada-eligibility enforced', 'Every change needs your OK'];
+
+  RADAR_STAGES = [
+    { key: 'scan', label: 'SCAN' }, { key: 'reason', label: 'REASON' }, { key: 'expand', label: 'EXPAND' },
+    { key: 'surface', label: 'SURFACE' }, { key: 'learn', label: 'LEARN' },
+  ];
+
+  TRACES = [
+    { from: 'macOS · Jamf (core)', count: 3,
+      hyp: 'Companies running Jamf often title their endpoint lead generically. I matched “Modern Workplace” and “Workspace” roles on description content — not your title terms — then Canada-filtered.',
+      finds: ['Modern Workplace Lead @ Benevity', '+2 more'] },
+    { from: 'AWS Amplify · React (rare edge)', count: 1,
+      hyp: 'Almost no one in your niche also ships software. I cross-listed “platform engineer” roles at Apple-fleet shops where that build credibility is rewarded, not ignored.',
+      finds: ['Staff Client Platform Engineer @ Shopify'] },
+    { from: 'Okta · SSO depth', count: 1,
+      hyp: 'Identity engineering is one hop from endpoint. I widened to “IAM / Access Engineer” titles at Canadian employers and ranked on your SSO evidence.',
+      finds: ['Identity & Access Engineer @ Wealthsimple'] },
+  ];
+
+  PROPOSALS = [
+    { id: 'p_term', kind: 'EXPAND SEARCH', tone: 'good', title: 'Add search term: “Workspace Engineer”',
+      rationale: '3 roles matched this title on Jamf/Intune content but never under your current terms. Adding it widens the net without adding noise.',
+      ok: 'Approved — added to your Cross-platform group.', act: () => this.TERM_GROUPS[1].terms.push('Workspace Engineer') },
+    { id: 'p_watch', kind: 'ADD COMPANY', tone: 'good', title: 'Watch company: Coveo',
+      rationale: 'You dismissed their support role — but its description revealed a Mac-heavy fleet. Watching catches a future engineering req the moment it posts.',
+      ok: 'Approved — Coveo added to your watchlist.', act: () => this.WATCHLIST.push(['Coveo', 'RSS']) },
+    { id: 'p_source', kind: 'ADD SOURCE', tone: 'good', title: 'Enable source: Vidyard (Ashby board)',
+      rationale: 'Vidyard posts endpoint roles only on their own Ashby board, not on aggregators. A direct pull catches them before they reach LinkedIn.',
+      ok: 'Approved — Vidyard board now in your sources.', act: () => this.SOURCES.splice(7, 0, { name: 'Vidyard', note: 'ATS JSON · direct board', tag: 'ACTIVE', on: true }) },
+    { id: 'p_tune', kind: 'TUNE WEIGHT', tone: 'warn', title: 'Down-weight “Support / Help-desk” titles',
+      rationale: 'You have dismissed 4 below-level support roles. I can auto-down-rank that title pattern so they stop crowding your ranked list.',
+      ok: 'Approved — support-tier titles will rank lower.', act: () => {} },
+    { id: 'p_auto', kind: 'AUTONOMY', tone: 'warn', title: 'Raise autonomy to Wide for vendor boards',
+      rationale: 'Your watchlist is vendor-heavy and stable. Wide mode lets me hypothesise new Apple-heavy companies to watch — still nothing applied or contacted without you.',
+      ok: 'Approved — autonomy raised to Wide.', act: () => this.setState({ autonomy: 'wide' }) },
+    { id: 'p_phantom', kind: 'MUTE PHANTOM', tone: 'bad', title: 'Mute phantom: Senior Systems Engineer @ Hootsuite',
+      rationale: 'Seen 6× over 94 days and never moved. I can mute it until the posting actually changes, so it stops resurfacing on every sweep.',
+      ok: 'Approved — muted until the posting changes.', act: () => {} },
+  ];
+
+  SUG_COS = [
+    { name: 'SAP', reason: 'Large enterprise Jamf customer — Apple-heavy fleet' },
+    { name: 'GitLab', reason: 'All-remote; documented macOS fleet & MDM' },
+    { name: 'Later', reason: 'Apple-first shop, Vancouver — close to your region' },
+  ];
+
+  // ---------- helpers ----------
+  meterColor(s) {
+    return { hit: '#1E8A4F', partial: '#B07D26', thin: '#D7B49E', na: '#E2DDD2', us: '#B0492B' }[s] || '#E2DDD2';
+  }
+  fillFor(s) { return { hit: '100%', partial: '55%', thin: '25%', na: '8%', us: '12%' }[s] || '8%'; }
+  fillColor(s) { return { hit: '#1E8A4F', partial: '#C39237', thin: '#D7B49E', na: '#D8D3C8', us: '#B0492B' }[s] || '#D8D3C8'; }
+  defNote(s, label) {
+    if (s === 'hit') return 'Central to this role.';
+    if (s === 'partial') return 'Present, not the focus.';
+    if (s === 'thin') return 'Lightly referenced.';
+    if (s === 'us') return 'Requires US authorization.';
+    return 'Not part of this role.';
+  }
+  chipTone(t) {
+    return {
+      good: { color: '#0F6B3B', bg: '#E7F1E8', bd: '#C5DDCB' },
+      warn: { color: '#8A5E14', bg: '#F4ECDA', bd: '#E3D2A8' },
+      bad: { color: '#8A4A2C', bg: '#F1E6DF', bd: '#DCC6B8' },
+    }[t] || { color: '#5E594E', bg: '#EFEBE1', bd: '#E0DBD0' };
+  }
+  eligVm(e) {
+    if (e.state === 'us') return { ...e, color: '#B0492B', bg: '#F3E3DB', bd: '#E0C3B5' };
+    if (e.label && e.label.indexOf('HYBRID') >= 0) return { ...e, color: '#8A5E14', bg: '#F4ECDA', bd: '#E3D2A8' };
+    return { ...e, color: '#0F6B3B', bg: '#E7F1E8', bd: '#C5DDCB' };
+  }
+
+  // ---------- actions ----------
+  setView(v) { this.setState({ view: v }); }
+
+  initials(name) {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'RR';
+    return ((parts[0][0] || '') + (parts[1] ? parts[1][0] : (parts[0][1] || ''))).toUpperCase();
+  }
+  setAuthMode(m) { this.setState({ authMode: m, authMsg: '' }); }
+  signIn() { this.setState(s => ({ authed: true, accountMenuOpen: false, acctEmail: s.authEmail || s.acctEmail })); }
+  createAccount() { this.setState({ authMode: 'confirm' }); }
+  verify() { this.setState(s => ({ authed: true, acctName: s.authName || s.acctName, acctEmail: s.authEmail || s.acctEmail })); }
+  sendReset() { this.setState({ authMsg: 'If that email has an account, a reset link is on its way.' }); }
+  signOut() { this.setState({ authed: false, authMode: 'signin', accountMenuOpen: false, authPassword: '', authCode: '' }); }
+  toggleAccount() { this.setState(s => ({ accountMenuOpen: !s.accountMenuOpen })); }
+
+  toggleAssistant() { this.setState(s => ({ assistantOpen: !s.assistantOpen })); }
+  openAssistant() { this.setState({ assistantOpen: true }); }
+  componentDidUpdate() {
+    if (this._chatLen !== this.state.chat.length) {
+      this._chatLen = this.state.chat.length;
+      const el = document.querySelector('[data-rr=chat]');
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+  }
+  botReply(q) {
+    q = (q || '').toLowerCase();
+    if (/top|match|best|recommend|fit/.test(q)) return "Your top three: 1Password — Client Platform Engineer (94), Jamf — Senior Endpoint Engineer (91), and Wealthsimple — Identity & Access (88). 1Password is the cleanest: Apple fleet at scale, identity baked in, right at your level. Want me to open it in Recommended?";
+    if (/new|sweep|found|latest|today/.test(q)) return "This sweep fetched 31 roles, deduped to 23, flagged 2 phantoms, and surfaced 3 hidden gems. The standout is Modern Workplace Lead @ Benevity — a generic title whose description is ~78% your stack.";
+    if (/phantom|repost|evergreen|fake/.test(q)) return "Hootsuite's Senior Systems Engineer (Apple Fleet) has appeared on 6 of the last 8 sweeps over 94 days and never moved — a classic evergreen req. I'd hold off on a serious application until it changes. Want me to mute it?";
+    if (/proposal|queue|move|approve|change/.test(q)) return "You have moves waiting above. The highest-value one: add \u201cWorkspace Engineer\u201d as a search term — it would surface 3 roles your current terms miss, with no extra noise.";
+    if (/eligib|canada|remote|visa|\bus\b|auth/.test(q)) return "I enforce Canada-eligibility as a hard filter. Tailscale's Endpoint Management role is a strong skills match but US-authorization only, so it stays hidden unless you override it on the card.";
+    if (/gem|hidden/.test(q)) return "3 hidden gems this sweep: Modern Workplace Lead @ Benevity and Technical Implementation Consultant @ Dialpad (both content matches), plus IT Operations Generalist @ Clio (a company-fleet signal). Confirm any to promote it into Recommended.";
+    if (/pipeline|applied|track|interview/.test(q)) return "You're tracking 3 roles: 1Password (Applied), Jamf (Interview), and NinjaOne (Interested). Want me to draft a follow-up note for the Jamf interview?";
+    if (/hi|hello|hey|help|start/.test(q)) return "Happy to help. Try \u201cwalk me through my top matches\u201d, \u201cwhat's new this sweep?\u201d, or \u201creview my proposals\u201d.";
+    return "I can walk you through your matches, explain any fit score, flag phantoms, or tee up changes for your approval. What would you like to dig into?";
+  }
+  sendChat(text) {
+    const t = (text != null ? text : this.state.chatInput).trim();
+    if (!t) return;
+    const reply = this.botReply(t);
+    this.setState(s => ({ chat: [...s.chat, { role: 'user', text: t }, { role: 'bot', text: reply }], chatInput: '' }));
+  }
+  setAutonomy(a) { this.setState({ autonomy: a }); }
+  togglePause() { this.setState(s => ({ radarPaused: !s.radarPaused })); }
+  approveProposal(p) {
+    if (p.act) p.act();
+    this.setState(s => ({ proposalState: { ...s.proposalState, [p.id]: 'approved' } }));
+  }
+  dismissProposal(id) { this.setState(s => ({ proposalState: { ...s.proposalState, [id]: 'dismissed' } })); }
+
+  buildRadar() {
+    const running = this.state.running, paused = this.state.radarPaused, done = this.state.runDone;
+    const stageIdx = this.state.radarStage;
+    const stages = this.RADAR_STAGES.map((st, i) => {
+      const active = running ? i <= stageIdx : (i === 4);
+      return {
+        label: st.label, showArrow: i > 0,
+        bg: active ? '#E7F1E8' : '#F4F1E9', color: active ? '#0F6B3B' : '#A39C8B',
+        bd: active ? '#C5DDCB' : '#EAE5D9',
+      };
+    });
+    const autonomyDefs = [
+      { key: 'conservative', label: 'CONSERVATIVE', hint: 'Only exact-term, title matches.' },
+      { key: 'balanced', label: 'BALANCED', hint: 'Adjacent titles + description content matches.' },
+      { key: 'wide', label: 'WIDE', hint: 'Also hypothesise new companies and sources.' },
+    ];
+    const autonomyBtns = autonomyDefs.map(a => ({
+      label: a.label, hint: a.hint, onClick: () => this.setAutonomy(a.key),
+      bg: this.state.autonomy === a.key ? '#211E18' : '#FBFAF6',
+      color: this.state.autonomy === a.key ? '#F4F2EC' : '#6E685D',
+    }));
+    const tone = (t) => ({
+      good: { tagBg: '#E7F1E8', tagColor: '#0F6B3B', tagBd: '#C5DDCB', accent: '#1E8A4F' },
+      warn: { tagBg: '#F4ECDA', tagColor: '#8A5E14', tagBd: '#E3D2A8', accent: '#C39237' },
+      bad: { tagBg: '#F6EAE3', tagColor: '#B0492B', tagBd: '#E6CBBE', accent: '#B0492B' },
+    }[t]);
+    const proposals = this.PROPOSALS.map(p => {
+      const st = this.state.proposalState[p.id];
+      const tn = tone(p.tone);
+      return {
+        kind: p.kind, title: p.title, rationale: p.rationale,
+        tagBg: tn.tagBg, tagColor: tn.tagColor, tagBd: tn.tagBd, accent: tn.accent, border: '#E4DFD4',
+        pending: !st, resolved: !!st, opacity: st === 'dismissed' ? 0.55 : 1,
+        resolvedLabel: st === 'approved' ? '✓ ' + p.ok : '— Dismissed',
+        resolvedColor: st === 'approved' ? '#0F6B3B' : '#A39C8B',
+        onApprove: () => this.approveProposal(p), onDismiss: () => this.dismissProposal(p.id),
+      };
+    });
+    const queueCount = proposals.filter(p => p.pending).length;
+    const stateLabel = paused ? 'PAUSED' : running ? 'SCOUTS DEPLOYED…' : 'ON · SCOUTS ON PATROL';
+    const sub = paused
+      ? 'Paused — scouts are recalled until you resume.'
+      : running ? 'Your scouts are combing your sources and reasoning against your résumé…'
+      : 'Radar sends scouts across your sources, then brings you what fits to approve — it never acts alone.';
+    return {
+      guardrails: this.GUARDRAILS, stages, autonomyBtns, proposals, queueCount,
+      radarStateLabel: stateLabel, radarSub: sub,
+      radarDot: paused ? '#C39237' : '#1E8A4F',
+      radarPulseAnim: running ? 'radarpulse 1.4s infinite' : (paused ? 'none' : 'radarpulse 2.8s infinite'),
+      pauseLabel: paused ? '▸ Resume' : '❚❚ Pause',
+      onTogglePause: () => this.togglePause(),
+      showSweep: running || done,
+      sweepHint: running ? 'sweep in progress' : paused ? 'standing by' : 'on-demand · last sweep ' + this.state.summary.when,
+      traces: this.TRACES,
+    };
+  }
+
+  buildAssistant() {
+    const messages = this.state.chat.map(m => ({
+      text: m.text, isBot: m.role === 'bot', isUser: m.role === 'user', showProposals: !!m.showProposals,
+    }));
+    const prompts = ['Walk me through my top matches', "What's new this sweep?", 'Review my proposals', 'Explain a phantom'];
+    const suggested = prompts.map(label => ({ label, onClick: () => this.sendChat(label) }));
+    return {
+      assistantOpen: this.state.assistantOpen, assistantClosed: !this.state.assistantOpen,
+      messages, suggested, chatInput: this.state.chatInput,
+      onToggleAssistant: () => this.toggleAssistant(),
+      onOpenAssistant: () => this.openAssistant(),
+      onChatInput: (e) => this.setState({ chatInput: e.target.value }),
+      onChatKey: (e) => { if (e.key === 'Enter') this.sendChat(); },
+      onSend: () => this.sendChat(),
+    };
+  }
+  toggleExpand(id) { this.setState(s => ({ expanded: { ...s.expanded, [id]: !s.expanded[id] } })); }
+  dismiss(id) { this.setState(s => ({ dismissed: { ...s.dismissed, [id]: true } })); }
+  togglePauseCo(n) { this.setState(s => ({ watchPaused: { ...s.watchPaused, [n]: !s.watchPaused[n] } })); }
+  removeCo(n) { this.setState(s => ({ watchRemoved: { ...s.watchRemoved, [n]: true } })); }
+  muteCo(n) { this.setState(s => { const w = { ...s.watchPaused }; delete w[n]; return { excludedCos: { ...s.excludedCos, [n]: true }, watchPaused: w }; }); }
+  unmuteCo(n) { this.setState(s => { const e = { ...s.excludedCos }; delete e[n]; return { excludedCos: e }; }); }
+  override(id) { this.setState(s => ({ overrides: { ...s.overrides, [id]: !s.overrides[id] } })); }
+  addToPipe(id) { this.setState(s => ({ pipeline: { ...s.pipeline, [id]: 'interested' } })); }
+  removeFromPipe(id) { this.setState(s => { const p = { ...s.pipeline }; delete p[id]; return { pipeline: p }; }); }
+  moveStage(id, dir) {
+    const order = this.PIPE_STAGES.map(x => x[0]);
+    this.setState(s => {
+      const cur = s.pipeline[id] || 'new';
+      let i = order.indexOf(cur) + dir;
+      i = Math.max(0, Math.min(order.length - 1, i));
+      return { pipeline: { ...s.pipeline, [id]: order[i] } };
+    });
+  }
+  removeTerm(key) { this.setState(s => ({ termRemoved: { ...s.termRemoved, [key]: true } })); }
+  addTerm() {
+    const t = (this.state.newTerm || '').trim();
+    if (!t) return;
+    this.TERM_GROUPS[0].terms.push(t);
+    this.setState({ newTerm: '' });
+  }
+  addTermToGroup(gi) {
+    const t = (this.state.newTermByGroup[gi] || '').trim();
+    if (!t) return;
+    this.TERM_GROUPS[gi].terms.push(t);
+    this.setState(s => { const m = { ...s.newTermByGroup }; delete m[gi]; return { newTermByGroup: m }; });
+  }
+  decideGem(id, v) { this.setState(s => ({ gemDecisions: { ...s.gemDecisions, [id]: v } })); }
+
+  parseProfile() { this.setState({ parsed: true }); }
+  cycleWeight(key, base) {
+    this.setState(s => {
+      const cur = s.weightOverride[key] != null ? s.weightOverride[key] : base;
+      const next = (cur % 3) + 1;
+      return { weightOverride: { ...s.weightOverride, [key]: next } };
+    });
+  }
+  addProfileTerm(label) { this.setState(s => ({ profileTermsAdded: { ...s.profileTermsAdded, [label]: true } })); }
+  addProfileCo(name) { this.setState(s => ({ profileCosAdded: { ...s.profileCosAdded, [name]: true } })); }
+
+  startRun() {
+    if (this.state.running) return;
+    const srcs = this.RUN_SRC.map(s => ({ ...s, status: 'pending' }));
+    this.setState({ running: true, view: 'radar', runDone: false, runSummary: '', runSources: srcs, radarStage: 0 });
+    let i = 0;
+    const total = srcs.length;
+    const step = () => {
+      const arr = this.state.runSources.map(x => ({ ...x }));
+      if (i > 0) arr[i - 1].status = arr[i - 1].kind === 'manual' ? 'manual' : 'done';
+      if (i < arr.length) {
+        arr[i].status = arr[i].kind === 'manual' ? 'manual' : 'scanning';
+        this.setState({ runSources: arr, radarStage: Math.min(3, Math.floor((i / total) * 4)) });
+        i++;
+        setTimeout(step, 480 + Math.random() * 280);
+      } else {
+        this.setState({
+          running: false, runDone: true, radarStage: 4,
+          runSummary: 'Fetched 31 roles → deduped to 23 by stable id → 2 phantoms flagged → 3 hidden gems surfaced → 4 new proposals queued for your review.',
+          summary: { fetched: 31, kept: 23, phantoms: 2, gems: 3, when: 'just now' },
+        });
+      }
+    };
+    setTimeout(step, 350);
+  }
+
+  // ---------- view models ----------
+  buildRec() {
+    const tierOf = (r) => {
+      if (r.verdict === 'below' || r.verdict === 'mismatch') return 2;
+      return 0;
+    };
+    let list = this.ROLES.filter(r => !this.state.dismissed[r.id] && !this.state.excludedCos[r.company]);
+    if (this.state.canadaOnly) list = list.filter(r => !(r.elig.state === 'us' && !this.state.overrides[r.id]));
+    if (this.state.hideBelow) list = list.filter(r => r.verdict !== 'below' && r.verdict !== 'mismatch');
+    list = list.slice().sort((a, b) => {
+      if (this.state.sortBy === 'new') return a.days - b.days;
+      const t = tierOf(a) - tierOf(b);
+      return t !== 0 ? t : b.score - a.score;
+    });
+
+    return list.map((r, idx) => {
+      const meter = this.DIMS.map(([k, label]) => ({ color: this.meterColor(r.dims[k]), label }));
+      const chips = r.chips.map(([text, tone]) => ({ text, ...this.chipTone(tone) }));
+      const dimRows = this.DIMS.map(([k, label]) => ({
+        label, fill: this.fillFor(r.dims[k]), color: this.fillColor(r.dims[k]),
+        note: (r.n && r.n[k]) || this.defNote(r.dims[k], label),
+      }));
+      const v = this.VERDICTS[r.verdict];
+      const elig = this.eligVm(r.elig);
+      const ineligibleNow = r.elig.state === 'us' && !this.state.overrides[r.id];
+      const down = r.down || ineligibleNow;
+      const stage = this.state.pipeline[r.id];
+      const pipe = stage
+        ? { label: '● ' + stage.toUpperCase(), color: '#0F6B3B', bg: '#E7F1E8', bd: '#C5DDCB' }
+        : { label: '+ pipeline', color: '#97907F', bg: '#F1EEE5', bd: '#E4DFD4' };
+      let flag = null;
+      if (r.phantom) {
+        flag = {
+          label: '⚠ PHANTOM RISK', color: '#B0492B', bg: '#F6EAE3', bd: '#E6CBBE', textColor: '#8A5340',
+          text: 'Seen ' + r.phantom.seen + '× over ' + r.phantom.days + ' days — never observed to fill.',
+          dots: r.phantom.runs.map(on => ({ bg: on ? '#B0492B' : 'transparent', bd: on ? '#B0492B' : '#D8C8BF' })),
+        };
+      } else if (ineligibleNow) {
+        flag = {
+          label: '✕ INELIGIBLE', color: '#B0492B', bg: '#F6EAE3', bd: '#E6CBBE', textColor: '#8A5340',
+          text: 'US work authorization required — shown because you overrode the Canada filter.', dots: [],
+        };
+      }
+      return {
+        ...r, rank: String(idx + 1).padStart(2, '0'),
+        metaLine: r.company + ' · ' + r.location + ' · ' + r.source + ' · ' + r.posted + (r.posted.indexOf('seen') < 0 ? ' ago' : ''),
+        verdict: v, scoreColor: r.verdict === 'below' || r.verdict === 'mismatch' ? '#A39C8B' : v.color,
+        meter, chips, dimRows, elig, eligDetail: r.elig.detail,
+        verdictSentence: r.sentence,
+        expanded: !!this.state.expanded[r.id], chevron: this.state.expanded[r.id] ? '−' : '+',
+        cardOpacity: down ? 0.66 : 1, cardBorder: '#E4DFD4', accent: v.color,
+        pipe, hasFlag: !!flag, flag: flag || { dots: [] },
+        overrideLabel: r.elig.state === 'us' ? (this.state.overrides[r.id] ? 'Mark ineligible' : 'I have US auth') : 'Mark ineligible',
+        pipeActionLabel: stage ? 'In pipeline · ' + stage : '+ Add to pipeline',
+        onToggle: () => this.toggleExpand(r.id),
+        onDismiss: () => this.dismiss(r.id),
+        onOverride: () => this.override(r.id),
+        onPipe: () => this.addToPipe(r.id),
+        onMuteCo: () => this.muteCo(r.company),
+      };
+    });
+  }
+
+  buildGems() {
+    return this.GEMS.map(g => {
+      const d = this.state.gemDecisions[g.id];
+      return {
+        ...g, metaLine: g.company + ' · ' + g.location + ' · ' + g.source,
+        elig: this.eligVm({ ...g.elig }),
+        decided: !!d, undecided: !d,
+        decidedLabel: d === 'confirmed' ? '✓ Promoted to recommendations' : '— Dismissed',
+        decidedColor: d === 'confirmed' ? '#0F6B3B' : '#A39C8B',
+        opacity: d === 'dismissed' ? 0.5 : 1,
+        cardBg: '#FDFBF4', cardBorder: '#E6D4A6',
+        onConfirm: () => this.decideGem(g.id, 'confirmed'),
+        onDismiss: () => this.decideGem(g.id, 'dismissed'),
+      };
+    });
+  }
+
+  buildPipeline() {
+    const idx = {};
+    [...this.ROLES, ...this.GEMS].forEach(r => { idx[r.id] = r; });
+    return this.PIPE_STAGES.map(([key, label, dot]) => {
+      const cards = Object.keys(this.state.pipeline).filter(id => this.state.pipeline[id] === key).map(id => {
+        const r = idx[id] || { title: id, company: '', elig: { state: 'ca', label: 'CA ✓' } };
+        return {
+          title: r.title, company: r.company, elig: this.eligVm({ ...(r.elig || { state: 'ca', label: 'CA ✓' }) }),
+          onPrev: () => this.moveStage(id, -1), onNext: () => this.moveStage(id, 1), onRemove: () => this.removeFromPipe(id),
+        };
+      });
+      return { label, dot, count: String(cards.length), cards, isEmpty: cards.length === 0 };
+    });
+  }
+
+  buildProfile() {
+    const confVm = (c) => ({
+      HIGH: { label: 'HIGH', color: '#0F6B3B', bg: '#E7F1E8', bd: '#C5DDCB', bar: '#1E8A4F' },
+      MED: { label: 'MEDIUM', color: '#8A5E14', bg: '#F4ECDA', bd: '#E3D2A8', bar: '#C39237' },
+      RARE: { label: '◆ RARE EDGE', color: '#6B4FA8', bg: '#EDE8F5', bd: '#D5CAE8', bar: '#8067C0' },
+    }[c]);
+    const strengths = this.STRENGTHS.map(st => {
+      const w = this.state.weightOverride[st.key] != null ? this.state.weightOverride[st.key] : st.weight;
+      const c = confVm(st.conf);
+      return {
+        label: st.label, ev: st.ev, conf: c,
+        barFill: st.bar + '%', barColor: c.bar,
+        weightDots: [0, 1, 2].map(i => ({ bg: i < w ? c.bar : '#E0DBCF' })),
+        onWeight: () => this.cycleWeight(st.key, st.weight),
+      };
+    });
+    const sugTerms = this.SUG_TERMS.map(t => {
+      const added = t.added || this.state.profileTermsAdded[t.label];
+      return {
+        label: t.label, added,
+        bg: added ? '#E7F1E8' : '#FBFAF6', color: added ? '#0F6B3B' : '#6E685D', bd: added ? '#C5DDCB' : '#E4DFD4',
+        actionLabel: added ? '✓ in search' : '+ add',
+        onAdd: () => this.addProfileTerm(t.label),
+      };
+    });
+    const sugCos = this.SUG_COS.map(c => {
+      const added = this.state.profileCosAdded[c.name];
+      return {
+        name: c.name, reason: c.reason, added,
+        actionLabel: added ? '✓ on watchlist' : '+ watch',
+        actionColor: added ? '#0F6B3B' : '#6E685D', actionBd: added ? '#C5DDCB' : '#E4DFD4', actionBg: added ? '#E7F1E8' : '#FBFAF6',
+        onAdd: () => this.addProfileCo(c.name),
+      };
+    });
+    return { strengths, sugTerms, sugCos };
+  }
+
+  renderVals() {
+    const v = this.state.view;
+    const titles = {
+      profile: ['Your profile', 'Résumé & LinkedIn — the source of truth fit is scored against'],
+      radar: ['Scouts', 'Radar sends scouts across your sources — they propose, you approve'],
+      recommend: ['Recommended', 'Ranked by fit — every score is explained'],
+      gems: ['Hidden gems', 'Roles your search terms would have missed'],
+      search: ['Search & watchlist', 'Manage terms, weights, companies and sources'],
+      pipeline: ['Pipeline', 'Every role you are tracking, through to close'],
+    };
+    const sm = this.state.summary;
+    const gemOpen = this.GEMS.filter(g => !this.state.gemDecisions[g.id]).length;
+    const radarQueue = this.PROPOSALS.filter(p => !this.state.proposalState[p.id]).length;
+
+    const navDef = [
+      { key: 'radar', label: 'SCOUTS', glyph: '◎', badge: radarQueue },
+      { key: 'gems', label: 'HIDDEN GEMS', glyph: '◇', badge: gemOpen },
+      { key: 'recommend', label: 'RECOMMENDED', glyph: '◆' },
+      { key: 'search', label: 'SEARCH', glyph: '≋' },
+      { key: 'pipeline', label: 'PIPELINE', glyph: '▤' },
+    ];
+    const navItems = navDef.map(n => {
+      const active = v === n.key;
+      return {
+        label: n.label, glyph: n.glyph, onClick: () => this.setView(n.key),
+        bg: active ? '#FBFAF6' : 'transparent', color: active ? '#211E18' : '#6E685D',
+        glyphColor: active ? '#1E8A4F' : '#B0A899',
+        hasBadge: !!n.badge, badge: String(n.badge || ''),
+        badgeBg: active ? '#1E8A4F' : '#E0DBCF', badgeColor: active ? '#fff' : '#8A8475',
+      };
+    });
+
+    const togBtn = (on) => on
+      ? { bg: '#211E18', bd: '#211E18', color: '#F4F2EC', dot: '#7BC99A' }
+      : { bg: '#FBFAF6', bd: '#E4DFD4', color: '#97907F', dot: '#D8D3C8' };
+    const ca = togBtn(this.state.canadaOnly), bl = togBtn(this.state.hideBelow);
+    const sortFit = this.state.sortBy === 'fit', sortNew = this.state.sortBy === 'new';
+
+    const termGroups = this.TERM_GROUPS.map((grp, gi) => ({
+      name: grp.name,
+      weightDots: [0, 1, 2].map(i => ({ bg: i < grp.weight ? '#1E8A4F' : '#E0DBCF' })),
+      terms: grp.terms.filter(t => !this.state.termRemoved[gi + ':' + t]).map(t => ({
+        label: t, onRemove: () => this.removeTerm(gi + ':' + t),
+      })),
+      inputValue: this.state.newTermByGroup[gi] || '',
+      onInput: (e) => this.setState(s => ({ newTermByGroup: { ...s.newTermByGroup, [gi]: e.target.value } })),
+      onAdd: () => this.addTermToGroup(gi),
+      onKey: (e) => { if (e.key === 'Enter') this.addTermToGroup(gi); },
+    }));
+    const srcTone = (s) => ({
+      Greenhouse: ['#E7F1E8', '#0F6B3B', '#C5DDCB'], Lever: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
+      Ashby: ['#E7F1E8', '#0F6B3B', '#C5DDCB'], Workday: ['#F4ECDA', '#8A5E14', '#E3D2A8'],
+      RSS: ['#EFEBE1', '#6E685D', '#E0DBD0'],
+    }[s] || ['#EFEBE1', '#6E685D', '#E0DBD0']);
+    const watchlist = this.WATCHLIST
+      .filter(([name]) => !this.state.watchRemoved[name] && !this.state.excludedCos[name])
+      .map(([name, src]) => {
+        const t = srcTone(src);
+        const paused = !!this.state.watchPaused[name];
+        return {
+          name, src, dot: paused ? '#D8D3C8' : (src === 'RSS' ? '#D8D3C8' : '#1E8A4F'),
+          srcBg: t[0], srcColor: t[1], srcBd: t[2],
+          nameColor: paused ? '#A39C8B' : '#211E18',
+          pauseLabel: paused ? 'resume' : 'pause',
+          onPause: () => this.togglePauseCo(name),
+          onRemove: () => this.removeCo(name),
+        };
+      });
+    const excludedList = Object.keys(this.state.excludedCos).map(name => ({ name, onUnmute: () => this.unmuteCo(name) }));
+    const hasExcluded = excludedList.length > 0;
+    const sourceList = this.SOURCES.map(s => ({
+      name: s.name, note: s.note,
+      toggleBg: s.on ? (s.tag === 'MANUAL' ? '#B07D26' : '#1E8A4F') : '#D8D3C8',
+      knobLeft: s.on ? '18px' : '2px',
+      tag: s.tag, tagColor: s.tag === 'ACTIVE' ? '#0F6B3B' : s.tag === 'MANUAL' ? '#8A5E14' : '#B0A899',
+    }));
+
+    const runStatus = sm.kept + ' roles · ' + sm.phantoms + ' phantoms · ' + sm.gems + ' gems';
+
+    return {
+      navItems,
+      viewTitle: titles[v][0], viewSub: titles[v][1],
+      runWhen: sm.when, runStatus,
+      onRun: () => this.startRun(),
+      runBtnLabel: this.state.running ? 'SCOUTING…' : 'SEND SCOUTS',
+      runBtnGlyph: this.state.running ? '◎' : '▸',
+      runBtnBg: this.state.running ? '#EFECE4' : '#1E8A4F',
+      runBtnColor: this.state.running ? '#97907F' : '#fff',
+      runBtnShadow: this.state.running ? 'none' : '0 1px 0 #15623A, 0 2px 8px rgba(30,138,79,0.25)',
+
+      showProfile: v === 'profile', showRadar: v === 'radar', showRecommend: v === 'recommend', showGems: v === 'gems',
+      showSearch: v === 'search', showPipeline: v === 'pipeline',
+      ...this.buildRadar(),
+      ...this.buildAssistant(),
+      hasQueue: this.PROPOSALS.filter(p => !this.state.proposalState[p.id]).length > 0,
+
+      resumeText: this.state.resumeText, linkedinText: this.state.linkedinText,
+      parsed: this.state.parsed, notParsed: !this.state.parsed,
+      onResumeInput: (e) => this.setState({ resumeText: e.target.value, parsed: false }),
+      onLinkedinInput: (e) => this.setState({ linkedinText: e.target.value }),
+      onParse: () => this.parseProfile(),
+      ...this.buildProfile(),
+
+      authed: this.state.authed, notAuthed: !this.state.authed,
+      authSignin: this.state.authMode === 'signin', authSignup: this.state.authMode === 'signup',
+      authConfirm: this.state.authMode === 'confirm', authForgot: this.state.authMode === 'forgot',
+      authEmail: this.state.authEmail, authPassword: this.state.authPassword,
+      authName: this.state.authName, authCode: this.state.authCode,
+      authEmailShown: this.state.authEmail || 'your email',
+      authMsg: this.state.authMsg, authMsgShown: !!this.state.authMsg,
+      onAuthEmail: (e) => this.setState({ authEmail: e.target.value }),
+      onAuthPassword: (e) => this.setState({ authPassword: e.target.value }),
+      onAuthName: (e) => this.setState({ authName: e.target.value }),
+      onAuthCode: (e) => this.setState({ authCode: e.target.value }),
+      onSignIn: () => this.signIn(),
+      onCreateAccount: () => this.createAccount(),
+      onVerify: () => this.verify(),
+      onSendReset: () => this.sendReset(),
+      onShowSignup: () => this.setAuthMode('signup'),
+      onShowSignin: () => this.setAuthMode('signin'),
+      onForgot: () => this.setAuthMode('forgot'),
+      onSignOut: () => this.signOut(),
+      onToggleAccount: () => this.toggleAccount(),
+      onGoProfile: () => this.setState({ view: 'profile', accountMenuOpen: false }),
+      accountMenuOpen: this.state.accountMenuOpen,
+      acctName: this.state.acctName, acctEmail: this.state.acctEmail,
+      acctInitials: this.initials(this.state.acctName),
+      acctCaret: this.state.accountMenuOpen ? '⌃' : '⌄',
+
+      runSources: this.state.runSources.map(s => {
+        const map = {
+          pending: ['transparent', '#D8D3C8', '#97907F', '#B0A899', 'queued'],
+          scanning: ['#F4ECDA', '#C39237', '#211E18', '#8A5E14', 'fetching…'],
+          done: ['#1E8A4F', '#1E8A4F', '#211E18', '#0F6B3B', '✓ ' + s.count],
+          manual: ['#B07D26', '#B07D26', '#211E18', '#8A5E14', 'manual — paste'],
+        }[s.status] || ['transparent', '#D8D3C8', '#97907F', '#B0A899', 'queued'];
+        return { name: s.name, detail: s.detail, dotBg: map[0], dotBorder: map[1], nameColor: map[2], statColor: map[3], statLabel: map[4] };
+      }),
+      runDone: this.state.runDone, runSummary: this.state.runSummary,
+
+      recRoles: this.buildRec(),
+      recCountLabel: this.buildRec().length + ' roles shown',
+      onSortFit: () => this.setState({ sortBy: 'fit' }),
+      onSortNew: () => this.setState({ sortBy: 'new' }),
+      sortFitBg: sortFit ? '#211E18' : '#FBFAF6', sortFitColor: sortFit ? '#F4F2EC' : '#6E685D', sortFitBd: sortFit ? '#211E18' : '#E4DFD4',
+      sortNewBg: sortNew ? '#211E18' : '#FBFAF6', sortNewColor: sortNew ? '#F4F2EC' : '#6E685D', sortNewBd: sortNew ? '#211E18' : '#E4DFD4',
+      onToggleCanada: () => this.setState(s => ({ canadaOnly: !s.canadaOnly })),
+      onToggleBelow: () => this.setState(s => ({ hideBelow: !s.hideBelow })),
+      canadaBg: ca.bg, canadaBd: ca.bd, canadaColor: ca.color, canadaDot: ca.dot,
+      belowBg: bl.bg, belowBd: bl.bd, belowColor: bl.color, belowDot: bl.dot,
+
+      gems: this.buildGems(),
+
+      termGroups, watchlist, sourceList, excludedList, hasExcluded,
+      newTerm: this.state.newTerm,
+      onTermInput: (e) => this.setState({ newTerm: e.target.value }),
+      onAddTerm: () => this.addTerm(),
+
+      pipelineCols: this.buildPipeline(),
+    };
+  }
+}
+</script>
+</body>
+</html>

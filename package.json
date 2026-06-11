@@ -1,0 +1,31 @@
+{
+  "name": "roleradar",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Role Radar — a private, single-user job-hunt cockpit. Radar dispatches Scouts across job sources, reasons about fit, and proposes; the owner approves.",
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "node scripts/make-icons.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b && tsc --noEmit -p amplify",
+    "icons": "node scripts/make-icons.mjs",
+    "sandbox": "ampx sandbox"
+  },
+  "dependencies": {
+    "aws-amplify": "^6.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@aws-amplify/backend": "^1.13.0",
+    "@aws-amplify/backend-cli": "^1.4.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.7",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}
