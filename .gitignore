@@ -1,0 +1,25 @@
+# dependencies / build
+node_modules/
+dist/
+dev-dist/
+*.tsbuildinfo
+
+# generated at build time by scripts/make-icons.mjs (npm run icons)
+public/icons/*.png
+
+# amplify gen 2 sandbox artifacts
+.amplify/
+amplify_outputs.json
+amplifyconfiguration.json
+
+# editor / os
+.DS_Store
+*.local
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# logs
+logs/
+*.log
+npm-debug.log*
