@@ -352,12 +352,18 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       };
     case 'SWEEP_APPLIED':
+      // Decision maps merge local-over-remote: a dismissal or stage move
+      // clicked while the sweep was in flight must never be raced away.
       return {
         ...state,
         roles: action.outcome.roles,
         gems: action.outcome.gems,
         proposals: action.outcome.proposals,
-        proposalState: action.outcome.proposalState,
+        proposalState: { ...action.outcome.proposalState, ...state.proposalState },
+        pipeline: { ...action.outcome.pipeline, ...state.pipeline },
+        dismissed: { ...action.outcome.dismissed, ...state.dismissed },
+        overrides: { ...action.outcome.overrides, ...state.overrides },
+        gemDecisions: { ...action.outcome.gemDecisions, ...state.gemDecisions },
       };
     case 'TOGGLE_EXPAND':
       return { ...state, expanded: { ...state.expanded, [action.id]: !state.expanded[action.id] } };

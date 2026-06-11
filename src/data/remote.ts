@@ -343,7 +343,9 @@ export async function loadAccount(): Promise<AccountSnapshot> {
     const ui = rowToUiRole(row);
     roles.push(ui);
     const gem = rowToUiGem(row);
-    if (gem && row.gemDecision !== 'dismissed') gems.push(gem);
+    // A dismissal at either level (the gem card or the role itself) keeps the
+    // posting hidden — dismissed means dismissed, everywhere.
+    if (gem && row.gemDecision !== 'dismissed' && !row.dismissed) gems.push(gem);
     if (row.gemDecision === 'confirmed' || row.gemDecision === 'dismissed')
       gemDecisions[row.id] = row.gemDecision;
     if (row.pipelineStage && row.pipelineStage !== 'none')
@@ -617,6 +619,10 @@ export interface SweepOutcome {
   gems: Gem[];
   proposals: Proposal[];
   proposalState: Record<string, 'approved' | 'dismissed'>;
+  pipeline: Record<string, PipelineStageKey>;
+  dismissed: Record<string, boolean>;
+  overrides: Record<string, boolean>;
+  gemDecisions: Record<string, 'confirmed' | 'dismissed'>;
   summary: SweepSummary;
   runSummary: string;
   perSource: { id: string; count: number }[];
@@ -653,13 +659,26 @@ export async function runSweepRemote(
     throw new Error('Sweep returned an unexpected payload — check the sweep Lambda logs');
   }
 
-  // Upsert into owner-scoped Role rows, keyed by stable sourceId.
+  // Upsert into owner-scoped Role rows, keyed by stable sourceId — with a
+  // company+title fallback so the same posting re-found via another source
+  // (or a shifted feed URL) merges into its existing row instead of creating
+  // a fresh one. This is what makes a dismissal stick: the needle you threw
+  // out can't sneak back into the haystack under a new id.
+  const normKey = (company: string, title: string) =>
+    `${company}::${title}`.toLowerCase().replace(/\s+/g, ' ').trim();
   const existing = await listAllRoles();
   const bySourceId = new Map(existing.map((r) => [r.sourceId, r]));
+  const byNameTitle = new Map(
+    existing
+      .filter((r) => r.company && r.title)
+      .map((r) => [normKey(r.company, r.title), r] as const),
+  );
   const now = new Date().toISOString();
 
   for (const wire of result.roles) {
-    const prev = bySourceId.get(wire.sourceId);
+    const prev =
+      bySourceId.get(wire.sourceId) ??
+      (wire.company && wire.title ? byNameTitle.get(normKey(wire.company, wire.title)) : undefined);
     if (prev) {
       const prevFit = parseJsonField<FitJson | null>(prev.fit, null);
       const keepAi = prevFit?.source === 'ai';
@@ -699,7 +718,11 @@ export async function runSweepRemote(
         pipelineStage: 'none',
         dismissed: false,
       });
-      if (created.data) bySourceId.set(wire.sourceId, created.data as unknown as RoleRow);
+      if (created.data) {
+        const row = created.data as unknown as RoleRow;
+        bySourceId.set(wire.sourceId, row);
+        if (wire.company && wire.title) byNameTitle.set(normKey(wire.company, wire.title), row);
+      }
     }
   }
 
@@ -708,6 +731,8 @@ export async function runSweepRemote(
   if (resumeText.trim()) {
     const refreshed = await listAllRoles();
     const candidates = refreshed
+      // No AI spend on roles the owner already dismissed or muted out.
+      .filter((r) => !r.dismissed && !cfg.excluded.includes(r.company))
       .filter((r) => parseJsonField<FitJson | null>(r.fit, null)?.source !== 'ai' && r.rawDescription)
       .sort(
         (a, b) =>
@@ -748,7 +773,8 @@ export async function runSweepRemote(
   const finalRows = await listAllRoles();
   const phantoms = finalRows.filter((r) => {
     const seen = r.seenCount ?? 1;
-    return seen >= 4 && daysBetween(r.firstSeen, new Date()) >= 30 && !r.phantomMuted;
+    // Dismissed roles don't need mute proposals — they're already hidden.
+    return seen >= 4 && daysBetween(r.firstSeen, new Date()) >= 30 && !r.phantomMuted && !r.dismissed;
   });
   const existingProposals = await c.models.Proposal.list({ limit: 200 });
   const proposedRoleIds = new Set(
@@ -786,6 +812,10 @@ export async function runSweepRemote(
     gems: snapshot.gems,
     proposals: snapshot.proposals,
     proposalState: snapshot.proposalState,
+    pipeline: snapshot.pipeline,
+    dismissed: snapshot.dismissed,
+    overrides: snapshot.overrides,
+    gemDecisions: snapshot.gemDecisions,
     summary: { ...snapshot.summary, when: 'just now' },
     runSummary:
       result.summary +

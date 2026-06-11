@@ -6,7 +6,11 @@ import { EligBadge, MONO } from '../ui/primitives';
 
 export function GemsView() {
   const { state, dispatch } = useStore();
-  const gems = state.gems.filter((g) => !state.excluded.includes(g.company));
+  // A role-level dismissal hides its gem card too (in connected mode the gem
+  // shares the role's record id).
+  const gems = state.gems.filter(
+    (g) => !state.excluded.includes(g.company) && !state.dismissed[g.id],
+  );
 
   return (
     <>
