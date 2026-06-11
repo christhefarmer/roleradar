@@ -16,9 +16,10 @@ const SRC_TONE: Record<string, [bg: string, color: string, bd: string]> = {
 };
 
 export function SearchView() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, api } = useStore();
   const [newTerms, setNewTerms] = useState<Record<number, string>>({});
   const [newCompany, setNewCompany] = useState('');
+  const [resolving, setResolving] = useState(false);
 
   const addTerm = (gi: number) => {
     const term = (newTerms[gi] || '').trim();
@@ -27,17 +28,29 @@ export function SearchView() {
     setNewTerms((m) => ({ ...m, [gi]: '' }));
   };
 
-  const addCompany = () => {
+  const addCompany = async () => {
     const text = newCompany.trim();
-    if (!text) return;
-    // A pasted careers URL resolves provider + slug; a plain name falls back
-    // to a Greenhouse-slug guess the adapter probes (and skips if missing).
-    const entry = resolveCareersUrl(text) ?? {
-      name: text,
-      src: 'Greenhouse',
-      slug: normalizeSlug(text),
-    };
-    dispatch({ type: 'ADD_CO', entry });
+    if (!text || resolving) return;
+    // A pasted careers URL resolves provider + slug directly.
+    const fromUrl = resolveCareersUrl(text);
+    if (fromUrl) {
+      dispatch({ type: 'ADD_CO', entry: fromUrl });
+      setNewCompany('');
+      return;
+    }
+    // A plain name: Radar probes the ATS boards server-side for the company's
+    // real provider. No board found → aggregate feeds still cover it (RSS tag).
+    setResolving(true);
+    const resolved = await api.resolveCompany(text);
+    setResolving(false);
+    dispatch({
+      type: 'ADD_CO',
+      entry:
+        resolved ??
+        (state.connected
+          ? { name: text, src: 'RSS', slug: normalizeSlug(text) }
+          : { name: text, src: 'Greenhouse', slug: normalizeSlug(text) }),
+    });
     setNewCompany('');
   };
 
@@ -264,7 +277,7 @@ export function SearchView() {
                 value={newCompany}
                 onChange={(e) => setNewCompany(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') addCompany();
+                  if (e.key === 'Enter') void addCompany();
                 }}
                 placeholder="company name, or paste a careers URL (Greenhouse / Lever / Ashby)…"
                 style={{
@@ -280,10 +293,11 @@ export function SearchView() {
                 }}
               />
               <button
-                onClick={addCompany}
+                onClick={() => void addCompany()}
+                disabled={resolving}
                 style={{
                   border: 'none',
-                  cursor: 'pointer',
+                  cursor: resolving ? 'wait' : 'pointer',
                   padding: '8px 14px',
                   borderRadius: 7,
                   background: '#211E18',
@@ -291,9 +305,10 @@ export function SearchView() {
                   fontFamily: MONO,
                   fontSize: 11,
                   flex: '0 0 auto',
+                  opacity: resolving ? 0.6 : 1,
                 }}
               >
-                + watch
+                {resolving ? '◎ finding board…' : '+ watch'}
               </button>
             </div>
           </div>

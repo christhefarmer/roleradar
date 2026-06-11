@@ -582,6 +582,27 @@ function heuristicParse(resumeText: string): ParseOutcome {
 }
 
 // ---------------------------------------------------------------------------
+// Watchlist board discovery
+
+const PROVIDER_SRC: Record<string, string> = {
+  greenhouse: 'Greenhouse',
+  lever: 'Lever',
+  ashby: 'Ashby',
+};
+
+/** Probe the ATS boards (server-side) for a company's slug. Returns a fully
+ *  tagged watchlist entry, or null when no public board was found. */
+export async function resolveCompanyRemote(name: string): Promise<WatchEntry | null> {
+  const res = await client().mutations.resolveBoard({ company: name });
+  const result = parseJsonField<{ found: boolean; provider?: string; slug?: string } | null>(
+    res.data,
+    null,
+  );
+  if (!result?.found || !result.provider || !result.slug) return null;
+  return { name, src: PROVIDER_SRC[result.provider] ?? 'RSS', slug: result.slug };
+}
+
+// ---------------------------------------------------------------------------
 // The sweep: invoke the Lambda, persist results owner-side, refine top fits
 
 export interface SweepOutcome {
