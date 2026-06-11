@@ -9,13 +9,15 @@
 // fine for a modest watchlist. The upgrade path (ARCHITECTURE.md §2) is an
 // async job writing per-source progress to SweepRun behind a subscription.
 
+import { ashby } from './adapters/ashby';
 import { eluta } from './adapters/eluta';
 import { greenhouse } from './adapters/greenhouse';
+import { lever } from './adapters/lever';
 import type { NormalizedRole, SourceAdapter, WatchlistEntry } from './adapters/types';
 
 // Adapter registry, priority order: ATS (watchlist) → Eluta → remote-first
 // feeds → LinkedIn (manual paste — no automated fetch, ever).
-const ADAPTERS: SourceAdapter[] = [greenhouse, eluta];
+const ADAPTERS: SourceAdapter[] = [greenhouse, lever, ashby, eluta];
 
 interface SweepConfig {
   terms: string[];
@@ -92,7 +94,7 @@ export const handler = async (event: SweepEvent): Promise<string> => {
     terms: [],
     watchlist: [],
     excludedCompanies: [],
-    activeSources: ['greenhouse', 'eluta'],
+    activeSources: ['greenhouse', 'lever', 'ashby', 'eluta'],
     ...(typeof raw === 'object' && raw !== null ? (raw as Partial<SweepConfig>) : {}),
   };
 

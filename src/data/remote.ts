@@ -110,8 +110,8 @@ const DEFAULT_GROUPS: TermGroup[] = [
 
 const DEFAULT_SOURCES: SourceDef[] = [
   { name: 'Greenhouse', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
-  { name: 'Lever', note: 'ATS JSON · watchlist companies', tag: 'OFF', on: false },
-  { name: 'Ashby', note: 'ATS JSON · watchlist companies', tag: 'OFF', on: false },
+  { name: 'Lever', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
+  { name: 'Ashby', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Workday', note: 'ATS JSON · watchlist companies', tag: 'OFF', on: false },
   { name: 'Eluta.ca', note: 'Sanctioned RSS / OpenSearch · Canada', tag: 'ACTIVE', on: true },
   { name: 'LinkedIn', note: 'Manual — paste roles from email alerts', tag: 'MANUAL', on: true },
@@ -119,9 +119,19 @@ const DEFAULT_SOURCES: SourceDef[] = [
 
 /** Adapter ids actually implemented server-side (ARCHITECTURE.md roadmap
  *  grows this list); the UI may show more toggles than are live. */
-const SOURCE_ADAPTER_IDS: Record<string, string> = {
+export const SOURCE_ADAPTER_IDS: Record<string, string> = {
   Greenhouse: 'greenhouse',
+  Lever: 'lever',
+  Ashby: 'ashby',
   'Eluta.ca': 'eluta',
+};
+
+/** Display names for the sweep panel, keyed by adapter id. */
+export const ADAPTER_DISPLAY: Record<string, string> = {
+  greenhouse: 'Greenhouse',
+  lever: 'Lever',
+  ashby: 'Ashby',
+  eluta: 'Eluta.ca RSS',
 };
 
 const GROUP_DIMS: DimKey[][] = [['macos'], ['intune'], ['identity', 'security'], ['client']];
