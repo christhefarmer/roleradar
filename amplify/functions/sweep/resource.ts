@@ -10,6 +10,8 @@ import { defineFunction } from '@aws-amplify/backend';
 export const sweep = defineFunction({
   name: 'sweep',
   entry: './handler.ts',
-  timeoutSeconds: 300,
+  // v1 runs synchronously behind the startSweep mutation; AppSync caps
+  // resolvers at 30s, so fail fast rather than burn invisible time.
+  timeoutSeconds: 30,
   memoryMB: 512,
 });

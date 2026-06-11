@@ -1,6 +1,8 @@
-// Global app state. UI state + per-account data live here behind one store so
-// the Amplify Data wiring (generateClient<Schema>() + AppSync subscriptions)
-// can replace the seed/reducer internals without touching the views.
+// Global app state. In design-fidelity mode (no amplify_outputs.json) the
+// store runs on the prototype seed exactly as before. In connected mode the
+// same reducer drives the UI, but state hydrates from Amplify Data after
+// Cognito sign-in and every meaningful action is persisted back through
+// src/data/remote.ts — the empty-account → populate-preferences → sweep loop.
 //
 // Product invariant carried through every action here: Radar proposes, the
 // owner approves. The only mutations that "act for" the bot are the ones
@@ -11,6 +13,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
   useRef,
@@ -20,35 +23,54 @@ import type {
   AuthMode,
   Autonomy,
   ChatMessage,
+  Gem,
   PipelineStageKey,
   Proposal,
+  Role,
   RunSource,
   SourceDef,
+  Strength,
+  SuggestedCompany,
+  SuggestedTerm,
   SweepSummary,
   TermGroup,
   ViewKey,
   WatchEntry,
 } from '../domain/types';
 import {
+  GEMS,
   PROPOSALS,
   RESUME_TEXT,
+  ROLES,
   RUN_SRC,
   SOURCES,
+  STRENGTHS,
+  SUG_COS,
+  SUG_TERMS,
   TERM_GROUPS,
   WATCHLIST,
 } from '../data/seed';
 import { botReply } from '../data/botReplies';
+import { isConnected } from '../lib/amplify';
+import * as auth from '../auth/authService';
+import * as remote from '../data/remote';
 
 export interface AppState {
+  connected: boolean;
+  /** Connected mode boots by checking the Cognito session. */
+  boot: 'checking' | 'ready';
   view: ViewKey;
-  // Sweep (the agentic run) — in production this mirrors the async sweep
-  // Lambda job, with progress arriving over an AppSync subscription.
+  // Sweep (the agentic run)
   running: boolean;
   runSources: RunSource[];
   runDone: boolean;
+  runError: boolean;
   runSummary: string;
   radarStage: number;
   summary: SweepSummary;
+  // Roles & gems (seed in design mode; Amplify Data in connected mode)
+  roles: Role[];
+  gems: Gem[];
   // Recommended filters
   expanded: Record<string, boolean>;
   canadaOnly: boolean;
@@ -69,7 +91,12 @@ export interface AppState {
   resumeText: string;
   linkedinText: string;
   parsed: boolean;
+  parsing: boolean;
   weights: Record<string, number>;
+  strengths: Strength[];
+  sugTerms: SuggestedTerm[];
+  sugCos: SuggestedCompany[];
+  facts: remote.ProfileFacts | null;
   profileTermsAdded: Record<string, boolean>;
   profileCosAdded: Record<string, boolean>;
   // Radar agent
@@ -80,67 +107,120 @@ export interface AppState {
   // Assistant rail
   assistantOpen: boolean;
   chat: ChatMessage[];
-  // Auth (mock — production swaps in Amplify Auth / Cognito)
+  chatBusy: boolean;
+  // Auth
   authed: boolean;
   authMode: AuthMode;
   acctName: string;
   acctEmail: string;
 }
 
-const initialState: AppState = {
-  view: 'recommend',
-  running: false,
-  runSources: [],
-  runDone: false,
-  runSummary: '',
-  radarStage: 4,
-  summary: { fetched: 31, kept: 23, phantoms: 2, gems: 3, when: '14m ago' },
-  expanded: { onepass: true },
-  canadaOnly: true,
-  hideBelow: false,
-  sortBy: 'fit',
-  dismissed: {},
-  overrides: {},
-  termGroups: TERM_GROUPS.map((g) => ({ ...g, terms: [...g.terms] })),
-  watchlist: [...WATCHLIST],
-  watchPaused: {},
-  excluded: [],
-  sources: [...SOURCES],
-  gemDecisions: {},
-  pipeline: { onepass: 'applied', jamf: 'interview', ninja: 'interested' },
-  resumeText: RESUME_TEXT,
-  linkedinText: '',
-  parsed: true,
-  weights: {},
-  profileTermsAdded: {},
-  profileCosAdded: {},
-  autonomy: 'balanced',
-  radarPaused: false,
-  proposals: [...PROPOSALS],
-  proposalState: {},
-  assistantOpen: true,
-  chat: [
-    {
-      role: 'bot',
-      text: "Hi — I'm Radar. I send scouts across your sources and bring back what fits. I can walk you through your matches, explain any fit score, flag phantoms, or tee up changes for your approval. Where do you want to start?",
-    },
-    {
-      role: 'bot',
-      text: 'Heads up: my scouts brought back a few moves for your review. Approve the ones you like — I only ever act on a yes.',
-      showProposals: true,
-    },
-  ],
-  authed: true,
-  authMode: 'signin',
-  acctName: 'Sr. IT Specialist',
-  acctEmail: 'you@icloud.com',
-};
+function createInitialState(connected: boolean): AppState {
+  const base = {
+    connected,
+    view: 'recommend' as ViewKey,
+    running: false,
+    runSources: [] as RunSource[],
+    runDone: false,
+    runError: false,
+    runSummary: '',
+    radarStage: 4,
+    expanded: {} as Record<string, boolean>,
+    canadaOnly: true,
+    hideBelow: false,
+    sortBy: 'fit' as const,
+    dismissed: {},
+    overrides: {},
+    watchPaused: {},
+    gemDecisions: {},
+    parsing: false,
+    weights: {},
+    profileTermsAdded: {},
+    profileCosAdded: {},
+    autonomy: 'balanced' as Autonomy,
+    radarPaused: false,
+    proposalState: {},
+    assistantOpen: true,
+    chatBusy: false,
+    authMode: 'signin' as AuthMode,
+  };
+  if (connected) {
+    return {
+      ...base,
+      boot: 'checking',
+      summary: { fetched: 0, kept: 0, phantoms: 0, gems: 0, when: 'never' },
+      roles: [],
+      gems: [],
+      termGroups: [],
+      watchlist: [],
+      excluded: [],
+      sources: [],
+      pipeline: {},
+      resumeText: '',
+      linkedinText: '',
+      parsed: false,
+      strengths: [],
+      sugTerms: [],
+      sugCos: [],
+      facts: null,
+      proposals: [],
+      chat: [
+        {
+          role: 'bot',
+          text: "Hi — I'm Radar. Your cockpit is empty so far: paste your résumé in Profile, add a few search terms and companies, then send my scouts out. I'll bring back what fits and propose moves for your approval — I only ever act on a yes.",
+          showProposals: true,
+        },
+      ],
+      authed: false,
+      acctName: '',
+      acctEmail: '',
+    };
+  }
+  return {
+    ...base,
+    boot: 'ready',
+    expanded: { onepass: true },
+    summary: { fetched: 31, kept: 23, phantoms: 2, gems: 3, when: '14m ago' },
+    roles: [...ROLES],
+    gems: [...GEMS],
+    termGroups: TERM_GROUPS.map((g) => ({ ...g, terms: [...g.terms] })),
+    watchlist: [...WATCHLIST],
+    excluded: [],
+    sources: [...SOURCES],
+    pipeline: { onepass: 'applied', jamf: 'interview', ninja: 'interested' },
+    resumeText: RESUME_TEXT,
+    linkedinText: '',
+    parsed: true,
+    strengths: [...STRENGTHS],
+    sugTerms: [...SUG_TERMS],
+    sugCos: [...SUG_COS],
+    facts: { seniority: 'Senior IC / Tech-Lead', location: 'Winnipeg, MB', canadaEligible: true },
+    proposals: [...PROPOSALS],
+    chat: [
+      {
+        role: 'bot',
+        text: "Hi — I'm Radar. I send scouts across your sources and bring back what fits. I can walk you through your matches, explain any fit score, flag phantoms, or tee up changes for your approval. Where do you want to start?",
+      },
+      {
+        role: 'bot',
+        text: 'Heads up: my scouts brought back a few moves for your review. Approve the ones you like — I only ever act on a yes.',
+        showProposals: true,
+      },
+    ],
+    authed: true,
+    acctName: 'Sr. IT Specialist',
+    acctEmail: 'you@icloud.com',
+  };
+}
 
-type Action =
+export type Action =
   | { type: 'SET_VIEW'; view: ViewKey }
+  | { type: 'BOOT_READY'; authed: boolean; name?: string; email?: string }
+  | { type: 'HYDRATE'; snapshot: remote.AccountSnapshot }
   | { type: 'RUN_START'; sources: RunSource[] }
   | { type: 'RUN_TICK'; sources: RunSource[]; radarStage: number }
-  | { type: 'RUN_DONE'; runSummary: string; summary: SweepSummary }
+  | { type: 'RUN_DONE'; runSummary: string; summary: SweepSummary; error?: boolean }
+  | { type: 'SWEEP_APPLIED'; outcome: remote.SweepOutcome }
   | { type: 'TOGGLE_EXPAND'; id: string }
   | { type: 'DISMISS_ROLE'; id: string }
   | { type: 'SET_SORT'; sortBy: 'fit' | 'new' }
@@ -161,6 +241,8 @@ type Action =
   | { type: 'SET_RESUME'; text: string }
   | { type: 'SET_LINKEDIN'; text: string }
   | { type: 'PARSE_PROFILE' }
+  | { type: 'SET_PARSING'; parsing: boolean }
+  | { type: 'PROFILE_PARSED'; outcome: remote.ParseOutcome }
   | { type: 'CYCLE_WEIGHT'; key: string; base: number }
   | { type: 'ADD_PROFILE_TERM'; label: string }
   | { type: 'ADD_PROFILE_CO'; name: string }
@@ -171,8 +253,11 @@ type Action =
   | { type: 'TOGGLE_ASSISTANT' }
   | { type: 'OPEN_ASSISTANT' }
   | { type: 'SEND_CHAT'; text: string }
+  | { type: 'CHAT_PUSH'; role: 'bot' | 'user'; text: string }
+  | { type: 'CHAT_APPEND'; text: string }
+  | { type: 'CHAT_BUSY'; busy: boolean }
   | { type: 'SET_AUTH_MODE'; mode: AuthMode }
-  | { type: 'SIGN_IN'; email?: string }
+  | { type: 'SIGN_IN'; email?: string; name?: string }
   | { type: 'VERIFY'; name?: string; email?: string }
   | { type: 'SIGN_OUT' };
 
@@ -186,9 +271,19 @@ const STAGE_ORDER: PipelineStageKey[] = [
 ];
 
 /** What an approval lets Radar do — the bot's only path to changing state.
- *  Production: these become the approval-gated write tools on the AI
- *  conversation route (addSearchTerm / watchCompany / enableSource / …). */
+ *  Design mode mirrors the prototype's scripted proposals; connected mode
+ *  executes the proposal's payload (persistence happens in the provider). */
 function applyApproval(state: AppState, id: string): AppState {
+  const proposal = state.proposals.find((p) => p.id === id);
+  if (proposal?.payload?.roleId) {
+    // mutePhantom: clear the flag locally; the row update happens provider-side.
+    return {
+      ...state,
+      roles: state.roles.map((r) =>
+        r.id === proposal.payload!.roleId ? { ...r, phantom: undefined } : r,
+      ),
+    };
+  }
   switch (id) {
     case 'p_term': {
       const termGroups = state.termGroups.map((g, i) =>
@@ -214,12 +309,28 @@ function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'SET_VIEW':
       return { ...state, view: action.view };
+    case 'BOOT_READY':
+      return {
+        ...state,
+        boot: 'ready',
+        authed: action.authed,
+        acctName: action.name ?? state.acctName,
+        acctEmail: action.email ?? state.acctEmail,
+      };
+    case 'HYDRATE':
+      return {
+        ...state,
+        ...action.snapshot,
+        boot: 'ready',
+        authed: true,
+      };
     case 'RUN_START':
       return {
         ...state,
         running: true,
         view: 'radar',
         runDone: false,
+        runError: false,
         runSummary: '',
         runSources: action.sources,
         radarStage: 0,
@@ -231,9 +342,21 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         running: false,
         runDone: true,
+        runError: !!action.error,
         radarStage: 4,
         runSummary: action.runSummary,
         summary: action.summary,
+        runSources: state.runSources.map((s) =>
+          s.kind === 'manual' ? { ...s, status: 'manual' } : { ...s, status: 'done' },
+        ),
+      };
+    case 'SWEEP_APPLIED':
+      return {
+        ...state,
+        roles: action.outcome.roles,
+        gems: action.outcome.gems,
+        proposals: action.outcome.proposals,
+        proposalState: action.outcome.proposalState,
       };
     case 'TOGGLE_EXPAND':
       return { ...state, expanded: { ...state.expanded, [action.id]: !state.expanded[action.id] } };
@@ -318,16 +441,45 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_LINKEDIN':
       return { ...state, linkedinText: action.text };
     case 'PARSE_PROFILE':
-      // Production: server-side heuristic parse (Lambda) → strengths/terms/companies.
+      // Design mode: the seed is "the parse". Connected mode goes through
+      // api.parseProfile → PROFILE_PARSED instead.
       return { ...state, parsed: true };
+    case 'SET_PARSING':
+      return { ...state, parsing: action.parsing };
+    case 'PROFILE_PARSED':
+      return {
+        ...state,
+        parsed: true,
+        parsing: false,
+        strengths: action.outcome.strengths,
+        sugTerms: action.outcome.sugTerms,
+        sugCos: action.outcome.sugCos,
+        facts: action.outcome.facts ?? state.facts,
+      };
     case 'CYCLE_WEIGHT': {
       const cur = state.weights[action.key] ?? action.base;
       return { ...state, weights: { ...state.weights, [action.key]: (cur % 3) + 1 } };
     }
-    case 'ADD_PROFILE_TERM':
-      return { ...state, profileTermsAdded: { ...state.profileTermsAdded, [action.label]: true } };
-    case 'ADD_PROFILE_CO':
-      return { ...state, profileCosAdded: { ...state.profileCosAdded, [action.name]: true } };
+    case 'ADD_PROFILE_TERM': {
+      const next = {
+        ...state,
+        profileTermsAdded: { ...state.profileTermsAdded, [action.label]: true },
+      };
+      if (!state.connected) return next;
+      // Connected: actually add the term to the first group.
+      return {
+        ...next,
+        termGroups: state.termGroups.map((g, i) =>
+          i === 0 && !g.terms.includes(action.label) ? { ...g, terms: [...g.terms, action.label] } : g,
+        ),
+      };
+    }
+    case 'ADD_PROFILE_CO': {
+      const next = { ...state, profileCosAdded: { ...state.profileCosAdded, [action.name]: true } };
+      if (!state.connected) return next;
+      if (state.watchlist.some((w) => w.name === action.name)) return next;
+      return { ...next, watchlist: [...state.watchlist, { name: action.name, src: 'Greenhouse' }] };
+    }
     case 'SET_AUTONOMY':
       return { ...state, autonomy: action.autonomy };
     case 'TOGGLE_RADAR_PAUSE':
@@ -344,6 +496,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'OPEN_ASSISTANT':
       return { ...state, assistantOpen: true };
     case 'SEND_CHAT': {
+      // Design mode only — connected chat streams via api.sendChat.
       const text = action.text.trim();
       if (!text) return state;
       return {
@@ -351,10 +504,25 @@ function reducer(state: AppState, action: Action): AppState {
         chat: [...state.chat, { role: 'user', text }, { role: 'bot', text: botReply(text) }],
       };
     }
+    case 'CHAT_PUSH':
+      return { ...state, chat: [...state.chat, { role: action.role, text: action.text }] };
+    case 'CHAT_APPEND': {
+      const chat = [...state.chat];
+      const last = chat[chat.length - 1];
+      if (last?.role === 'bot') chat[chat.length - 1] = { ...last, text: (last.text ?? '') + action.text };
+      return { ...state, chat };
+    }
+    case 'CHAT_BUSY':
+      return { ...state, chatBusy: action.busy };
     case 'SET_AUTH_MODE':
       return { ...state, authMode: action.mode };
     case 'SIGN_IN':
-      return { ...state, authed: true, acctEmail: action.email || state.acctEmail };
+      return {
+        ...state,
+        authed: true,
+        acctEmail: action.email || state.acctEmail,
+        acctName: action.name || state.acctName,
+      };
     case 'VERIFY':
       return {
         ...state,
@@ -363,53 +531,331 @@ function reducer(state: AppState, action: Action): AppState {
         acctEmail: action.email || state.acctEmail,
       };
     case 'SIGN_OUT':
-      return { ...state, authed: false, authMode: 'signin' };
+      return {
+        ...createInitialState(state.connected),
+        boot: 'ready',
+        authed: false,
+        authMode: 'signin',
+      };
   }
+}
+
+// Actions whose end state must be mirrored into the owner's SearchConfig row.
+const SEARCH_SYNC = new Set<Action['type']>([
+  'ADD_TERM',
+  'REMOVE_TERM',
+  'TOGGLE_PAUSE_CO',
+  'REMOVE_CO',
+  'MUTE_CO',
+  'UNMUTE_CO',
+  'TOGGLE_SOURCE',
+  'SET_AUTONOMY',
+  'ADD_PROFILE_CO',
+  'ADD_PROFILE_TERM',
+  'APPROVE_PROPOSAL',
+]);
+
+// Actions whose end state must be mirrored into the owner's Profile row.
+const PROFILE_SYNC = new Set<Action['type']>([
+  'SET_RESUME',
+  'SET_LINKEDIN',
+  'CYCLE_WEIGHT',
+  'ADD_PROFILE_TERM',
+  'PROFILE_PARSED',
+]);
+
+interface Api {
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string) => Promise<void>;
+  confirm: (name: string, email: string, code: string, password: string) => Promise<void>;
+  resendCode: (email: string) => Promise<void>;
+  startReset: (email: string) => Promise<void>;
+  confirmReset: (email: string, code: string, newPassword: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  parseProfile: () => Promise<void>;
+  sendChat: (text: string) => void;
 }
 
 interface Store {
   state: AppState;
   dispatch: (a: Action) => void;
-  /** Run a sweep. Mock drives timers; production starts the sweep Lambda and
-   *  subscribes to its progress (ARCHITECTURE.md §2 — not a fixed timer). */
+  /** Run a sweep — the design-mode animation, or the real Scout Lambda. */
   startRun: () => void;
+  api: Api;
 }
 
 const StoreContext = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, rawDispatch] = useReducer(reducer, isConnected, createInitialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const runningRef = useRef(false);
+  const syncTimers = useRef<{ search?: number; profile?: number }>({});
+
+  // Persistence wrapper: reduce first, then mirror the touched aggregate to
+  // Amplify Data (debounced for the config/profile aggregates, immediate for
+  // per-row changes). Design mode skips all of it.
+  const dispatch = useCallback((action: Action) => {
+    rawDispatch(action);
+    if (!isConnected || !stateRef.current.authed) return;
+    // Let the reducer commit before reading the post-action state.
+    queueMicrotask(() => {
+      const s = stateRef.current;
+      try {
+        if (SEARCH_SYNC.has(action.type)) {
+          window.clearTimeout(syncTimers.current.search);
+          syncTimers.current.search = window.setTimeout(() => {
+            remote.saveSearchConfig(stateRef.current).catch((e) => console.warn('search sync', e));
+          }, 800);
+        }
+        if (PROFILE_SYNC.has(action.type)) {
+          window.clearTimeout(syncTimers.current.profile);
+          syncTimers.current.profile = window.setTimeout(() => {
+            remote.saveProfile(stateRef.current).catch((e) => console.warn('profile sync', e));
+          }, 800);
+        }
+        switch (action.type) {
+          case 'ADD_TO_PIPE':
+            void remote.saveRolePatch(action.id, { pipelineStage: 'interested' });
+            break;
+          case 'REMOVE_FROM_PIPE':
+            void remote.saveRolePatch(action.id, { pipelineStage: 'none' });
+            break;
+          case 'MOVE_STAGE':
+            void remote.saveRolePatch(action.id, { pipelineStage: s.pipeline[action.id] ?? 'new' });
+            break;
+          case 'DISMISS_ROLE':
+            void remote.saveRolePatch(action.id, { dismissed: true });
+            break;
+          case 'TOGGLE_OVERRIDE':
+            void remote.saveRolePatch(action.id, { eligibilityOverridden: !!s.overrides[action.id] });
+            break;
+          case 'DECIDE_GEM':
+            void remote.saveRolePatch(action.id, { gemDecision: action.decision });
+            break;
+          case 'APPROVE_PROPOSAL': {
+            const p = s.proposals.find((x) => x.id === action.id);
+            if (p?.recordId) void remote.saveProposalStatus(p.recordId, 'approved', p.ok);
+            if (p?.payload?.roleId) void remote.saveRolePatch(p.payload.roleId, { phantomMuted: true });
+            break;
+          }
+          case 'DISMISS_PROPOSAL': {
+            const p = s.proposals.find((x) => x.id === action.id);
+            if (p?.recordId) void remote.saveProposalStatus(p.recordId, 'dismissed');
+            break;
+          }
+          default:
+            break;
+        }
+      } catch (e) {
+        console.warn('persist', e);
+      }
+    });
+  }, []);
+
+  // Connected boot: restore the Cognito session, then hydrate the account
+  // (creating the empty Profile + default SearchConfig on first sign-in).
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    (async () => {
+      const session = await auth.checkSession();
+      if (cancelled) return;
+      if (!session.authed) {
+        rawDispatch({ type: 'BOOT_READY', authed: false });
+        return;
+      }
+      rawDispatch({
+        type: 'BOOT_READY',
+        authed: true,
+        name: session.name ?? session.email?.split('@')[0],
+        email: session.email,
+      });
+      try {
+        const snapshot = await remote.loadAccount();
+        if (!cancelled) rawDispatch({ type: 'HYDRATE', snapshot });
+      } catch (e) {
+        console.warn('hydrate', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const hydrateAfterAuth = useCallback(async (name?: string, email?: string) => {
+    rawDispatch({ type: 'SIGN_IN', name, email });
+    try {
+      const snapshot = await remote.loadAccount();
+      rawDispatch({ type: 'HYDRATE', snapshot });
+    } catch (e) {
+      console.warn('hydrate', e);
+    }
+  }, []);
 
   const startRun = useCallback(() => {
     if (runningRef.current) return;
     runningRef.current = true;
-    let sources: RunSource[] = RUN_SRC.map((s) => ({ ...s, status: 'pending' }));
-    dispatch({ type: 'RUN_START', sources });
-    const total = sources.length;
-    let i = 0;
-    const step = () => {
-      sources = sources.map((x) => ({ ...x }));
-      if (i > 0) sources[i - 1].status = sources[i - 1].kind === 'manual' ? 'manual' : 'done';
-      if (i < sources.length) {
-        sources[i].status = sources[i].kind === 'manual' ? 'manual' : 'scanning';
-        dispatch({ type: 'RUN_TICK', sources, radarStage: Math.min(3, Math.floor((i / total) * 4)) });
-        i++;
-        setTimeout(step, 480 + Math.random() * 280);
-      } else {
-        runningRef.current = false;
-        dispatch({
+    const s = stateRef.current;
+
+    if (!isConnected) {
+      // Design mode: the prototype's scripted sweep animation.
+      let sources: RunSource[] = RUN_SRC.map((x) => ({ ...x, status: 'pending' }));
+      rawDispatch({ type: 'RUN_START', sources });
+      const total = sources.length;
+      let i = 0;
+      const step = () => {
+        sources = sources.map((x) => ({ ...x }));
+        if (i > 0) sources[i - 1].status = sources[i - 1].kind === 'manual' ? 'manual' : 'done';
+        if (i < sources.length) {
+          sources[i].status = sources[i].kind === 'manual' ? 'manual' : 'scanning';
+          rawDispatch({ type: 'RUN_TICK', sources, radarStage: Math.min(3, Math.floor((i / total) * 4)) });
+          i++;
+          setTimeout(step, 480 + Math.random() * 280);
+        } else {
+          runningRef.current = false;
+          rawDispatch({
+            type: 'RUN_DONE',
+            runSummary:
+              'Fetched 31 roles → deduped to 23 by stable id → 2 phantoms flagged → 3 hidden gems surfaced → 4 new proposals queued for your review.',
+            summary: { fetched: 31, kept: 23, phantoms: 2, gems: 3, when: 'just now' },
+          });
+        }
+      };
+      setTimeout(step, 350);
+      return;
+    }
+
+    // Connected: the real Scout Lambda via the startSweep mutation. The
+    // per-source list animates while the call is in flight; the v2 upgrade
+    // replaces this with live progress over an AppSync subscription.
+    const watchCount = s.watchlist.filter((w) => !s.watchPaused[w.name]).length;
+    const termCount = s.termGroups.reduce((n, g) => n + g.terms.length, 0);
+    let sources: RunSource[] = [
+      {
+        name: 'Greenhouse',
+        detail: `ATS JSON · ${watchCount} watchlist compan${watchCount === 1 ? 'y' : 'ies'}`,
+        count: '…',
+        kind: 'auto',
+        status: 'pending',
+      },
+      {
+        name: 'Eluta.ca RSS',
+        detail: `Sanctioned Canadian aggregate · ${termCount} terms`,
+        count: '…',
+        kind: 'auto',
+        status: 'pending',
+      },
+      {
+        name: 'LinkedIn',
+        detail: 'Manual alert inbox — no automated pull',
+        count: 'manual',
+        kind: 'manual',
+        status: 'manual',
+      },
+    ];
+    rawDispatch({ type: 'RUN_START', sources });
+    let tick = 0;
+    const ticker = window.setInterval(() => {
+      tick++;
+      sources = sources.map((x, i) =>
+        x.kind === 'manual' ? x : { ...x, status: i < tick ? 'scanning' : x.status },
+      );
+      rawDispatch({ type: 'RUN_TICK', sources, radarStage: Math.min(3, tick) });
+    }, 900);
+
+    (async () => {
+      try {
+        const outcome = await remote.runSweepRemote(s, s.resumeText);
+        rawDispatch({ type: 'SWEEP_APPLIED', outcome });
+        rawDispatch({ type: 'RUN_DONE', runSummary: outcome.runSummary, summary: outcome.summary });
+      } catch (e) {
+        rawDispatch({
           type: 'RUN_DONE',
-          runSummary:
-            'Fetched 31 roles → deduped to 23 by stable id → 2 phantoms flagged → 3 hidden gems surfaced → 4 new proposals queued for your review.',
-          summary: { fetched: 31, kept: 23, phantoms: 2, gems: 3, when: 'just now' },
+          runSummary: `Sweep failed: ${e instanceof Error ? e.message : String(e)}. Check that the backend is deployed and try again.`,
+          summary: stateRef.current.summary,
+          error: true,
         });
+      } finally {
+        window.clearInterval(ticker);
+        runningRef.current = false;
       }
-    };
-    setTimeout(step, 350);
+    })();
   }, []);
 
-  const store = useMemo(() => ({ state, dispatch, startRun }), [state, startRun]);
+  const api = useMemo<Api>(
+    () => ({
+      async signIn(email, password) {
+        await auth.doSignIn(email, password);
+        await hydrateAfterAuth(email.split('@')[0], email);
+      },
+      async signUp(name, email, password) {
+        await auth.doSignUp(name, email, password);
+      },
+      async confirm(name, email, code, password) {
+        await auth.doConfirm(email, code);
+        if (isConnected) await auth.doSignIn(email, password);
+        await hydrateAfterAuth(name || email.split('@')[0], email);
+      },
+      async resendCode(email) {
+        await auth.doResendCode(email);
+      },
+      async startReset(email) {
+        await auth.doStartReset(email);
+      },
+      async confirmReset(email, code, newPassword) {
+        await auth.doConfirmReset(email, code, newPassword);
+      },
+      async signOut() {
+        await auth.doSignOut();
+        rawDispatch({ type: 'SIGN_OUT' });
+      },
+      async parseProfile() {
+        const s = stateRef.current;
+        if (!isConnected) {
+          rawDispatch({ type: 'PARSE_PROFILE' });
+          return;
+        }
+        rawDispatch({ type: 'SET_PARSING', parsing: true });
+        try {
+          const outcome = await remote.parseProfileRemote(s.resumeText, s.linkedinText);
+          rawDispatch({ type: 'PROFILE_PARSED', outcome });
+          remote.saveProfile({ ...stateRef.current, ...outcome }).catch(() => undefined);
+        } catch (e) {
+          console.warn('parse', e);
+          rawDispatch({ type: 'SET_PARSING', parsing: false });
+        }
+      },
+      sendChat(text) {
+        const t = text.trim();
+        if (!t) return;
+        if (!isConnected) {
+          dispatch({ type: 'SEND_CHAT', text: t });
+          return;
+        }
+        rawDispatch({ type: 'CHAT_PUSH', role: 'user', text: t });
+        rawDispatch({ type: 'CHAT_PUSH', role: 'bot', text: '' });
+        rawDispatch({ type: 'CHAT_BUSY', busy: true });
+        remote
+          .sendChatRemote(
+            t,
+            (delta) => rawDispatch({ type: 'CHAT_APPEND', text: delta }),
+            () => rawDispatch({ type: 'CHAT_BUSY', busy: false }),
+          )
+          .catch(() => {
+            rawDispatch({
+              type: 'CHAT_APPEND',
+              text: '— I could not reach my reasoning model. Check that Bedrock model access is enabled for the configured Claude model, then try again.',
+            });
+            rawDispatch({ type: 'CHAT_BUSY', busy: false });
+          });
+      },
+    }),
+    [dispatch, hydrateAfterAuth],
+  );
+
+  const store = useMemo(() => ({ state, dispatch, startRun, api }), [state, dispatch, startRun, api]);
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }
 

@@ -3,7 +3,6 @@
 // evidence quote), suggested search terms, suggested watchlist, profile facts.
 
 import type { StrengthConfidence } from '../domain/types';
-import { STRENGTHS, SUG_COS, SUG_TERMS } from '../data/seed';
 import { useStore } from '../state/store';
 import { MONO, SectionLabel } from '../ui/primitives';
 
@@ -31,7 +30,8 @@ const textareaStyle: React.CSSProperties = {
 };
 
 export function ProfileView() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, api } = useStore();
+  const { strengths, sugTerms, sugCos, facts } = state;
 
   return (
     <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -41,6 +41,7 @@ export function ProfileView() {
           value={state.resumeText}
           onChange={(e) => dispatch({ type: 'SET_RESUME', text: e.target.value })}
           spellCheck={false}
+          placeholder="Paste your résumé here. Everything Radar does — fit scores, search expansion, gem detection — is measured against this text."
           style={{ ...textareaStyle, height: 230 }}
         />
 
@@ -54,13 +55,14 @@ export function ProfileView() {
         />
 
         <button
-          onClick={() => dispatch({ type: 'PARSE_PROFILE' })}
+          onClick={() => void api.parseProfile()}
+          disabled={state.parsing || !state.resumeText.trim()}
           className="rr-btn-primary"
           style={{
             width: '100%',
             marginTop: 14,
             border: 'none',
-            cursor: 'pointer',
+            cursor: state.parsing ? 'wait' : 'pointer',
             padding: 12,
             borderRadius: 9,
             color: '#fff',
@@ -69,9 +71,10 @@ export function ProfileView() {
             fontWeight: 600,
             letterSpacing: '0.05em',
             boxShadow: '0 1px 0 #15623A',
+            opacity: state.parsing || !state.resumeText.trim() ? 0.6 : 1,
           }}
         >
-          ↻ PARSE PROFILE
+          {state.parsing ? '◎ PARSING…' : '↻ PARSE PROFILE'}
         </button>
         <p style={{ fontFamily: MONO, fontSize: 10, color: '#A39C8B', lineHeight: 1.7, margin: '11px 2px 0' }}>
           Parsed server-side, heuristically. Everything below is a hint you confirm or edit — it never
@@ -98,7 +101,8 @@ export function ProfileView() {
                 ✓ PARSED
               </span>
               <span style={{ fontSize: 12.5, color: '#3A6B49' }}>
-                7 strengths · 8 candidate terms · 3 watchlist suggestions extracted.
+                {strengths.length} strengths · {sugTerms.length} candidate terms · {sugCos.length}{' '}
+                watchlist suggestions extracted.
               </span>
             </div>
 
@@ -108,7 +112,7 @@ export function ProfileView() {
               rankings.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 24 }}>
-              {STRENGTHS.map((st) => {
+              {strengths.map((st) => {
                 const conf = CONF_VM[st.conf];
                 const weight = state.weights[st.key] ?? st.weight;
                 return (
@@ -203,7 +207,7 @@ export function ProfileView() {
               SUGGESTED SEARCH TERMS — FROM YOUR RÉSUMÉ
             </SectionLabel>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
-              {SUG_TERMS.map((t) => {
+              {sugTerms.map((t) => {
                 const added = t.added || state.profileTermsAdded[t.label];
                 return (
                   <button
@@ -242,7 +246,7 @@ export function ProfileView() {
                 marginBottom: 24,
               }}
             >
-              {SUG_COS.map((c) => {
+              {sugCos.map((c) => {
                 const added = state.profileCosAdded[c.name];
                 return (
                   <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10 }}>
@@ -273,56 +277,78 @@ export function ProfileView() {
               })}
             </div>
 
-            <SectionLabel style={{ letterSpacing: '0.06em', marginBottom: 11 }}>
-              PROFILE FACTS — SET YOUR DEFAULTS
-            </SectionLabel>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <div style={factCardStyle}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: '#A39C8B', letterSpacing: '0.05em' }}>
-                  SENIORITY
+            {facts && (
+              <>
+                <SectionLabel style={{ letterSpacing: '0.06em', marginBottom: 11 }}>
+                  PROFILE FACTS — SET YOUR DEFAULTS
+                </SectionLabel>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {facts.seniority && (
+                    <div style={factCardStyle}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: '#A39C8B', letterSpacing: '0.05em' }}>
+                        SENIORITY
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--rr-ink)', marginTop: 5 }}>
+                        {facts.seniority}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#7A7468', marginTop: 3 }}>
+                        Used by the level-fit dimension.
+                      </div>
+                    </div>
+                  )}
+                  <div style={factCardStyle}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: '#A39C8B', letterSpacing: '0.05em' }}>
+                      LOCATION → ELIGIBILITY
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--rr-ink)' }}>
+                        {facts.location ?? '—'}
+                      </span>
+                      {facts.canadaEligible && (
+                        <span
+                          style={{
+                            fontFamily: MONO,
+                            fontSize: 9.5,
+                            padding: '2px 7px',
+                            borderRadius: 5,
+                            background: 'var(--rr-primary-tint)',
+                            color: '#0F6B3B',
+                            border: '1px solid #C5DDCB',
+                          }}
+                        >
+                          CANADA ✓
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#7A7468', marginTop: 3 }}>
+                      Canada-eligible filter on by default.
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--rr-ink)', marginTop: 5 }}>
-                  Senior IC / Tech-Lead
-                </div>
-                <div style={{ fontSize: 11.5, color: '#7A7468', marginTop: 3 }}>
-                  Open to engineering-forward leadership.
-                </div>
-              </div>
-              <div style={factCardStyle}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: '#A39C8B', letterSpacing: '0.05em' }}>
-                  LOCATION → ELIGIBILITY
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--rr-ink)' }}>Winnipeg, MB</span>
-                  <span
-                    style={{
-                      fontFamily: MONO,
-                      fontSize: 9.5,
-                      padding: '2px 7px',
-                      borderRadius: 5,
-                      background: 'var(--rr-primary-tint)',
-                      color: '#0F6B3B',
-                      border: '1px solid #C5DDCB',
-                    }}
-                  >
-                    CANADA ✓
-                  </span>
-                </div>
-                <div style={{ fontSize: 11.5, color: '#7A7468', marginTop: 3 }}>
-                  Canada-eligible filter on by default.
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </>
         ) : (
           <div style={{ border: '1px dashed #DCD6C9', borderRadius: 12, padding: '48px 28px', textAlign: 'center' }}>
             <div style={{ fontSize: 24, color: '#C4BCAC', marginBottom: 10 }}>◈</div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#3A352D' }}>
-              Résumé edited — re-parse to refresh
+              {strengths.length === 0 && !state.resumeText.trim()
+                ? 'Your profile starts here'
+                : 'Résumé edited — re-parse to refresh'}
             </div>
             <p style={{ fontSize: 12.5, color: 'var(--rr-faint)', maxWidth: 340, margin: '8px auto 0', lineHeight: 1.55 }}>
-              Hit <b>Parse profile</b> to re-extract strengths, terms and watchlist suggestions from your
-              updated text.
+              {strengths.length === 0 && !state.resumeText.trim() ? (
+                <>
+                  Paste your résumé on the left and hit <b>Parse profile</b>. Radar extracts your
+                  strengths, suggests search terms and companies, and scores every role against this
+                  text.
+                </>
+              ) : (
+                <>
+                  Hit <b>Parse profile</b> to re-extract strengths, terms and watchlist suggestions
+                  from your updated text.
+                </>
+              )}
             </p>
           </div>
         )}

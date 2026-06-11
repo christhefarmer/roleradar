@@ -3,7 +3,7 @@
 // reveals the transparent fit breakdown. A score is never shown without its why.
 
 import type { CSSProperties } from 'react';
-import { DIMS, ROLES } from '../data/seed';
+import { DIMS } from '../data/seed';
 import type { Role } from '../domain/types';
 import { useStore } from '../state/store';
 import { EligBadge, MONO } from '../ui/primitives';
@@ -26,9 +26,11 @@ function filterToggleStyle(on: boolean): CSSProperties {
 }
 
 export function RecommendedView() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, startRun } = useStore();
 
-  let list = ROLES.filter((r) => !state.dismissed[r.id] && !state.excluded.includes(r.company));
+  let list = state.roles.filter(
+    (r) => !state.dismissed[r.id] && !state.excluded.includes(r.company),
+  );
   if (state.canadaOnly) list = list.filter((r) => !(r.elig.state === 'us' && !state.overrides[r.id]));
   if (state.hideBelow) list = list.filter((r) => r.verdict !== 'below' && r.verdict !== 'mismatch');
   const tierOf = (r: Role) => (r.verdict === 'below' || r.verdict === 'mismatch' ? 2 : 0);
@@ -90,6 +92,53 @@ export function RecommendedView() {
       {list.map((r, idx) => (
         <RoleCard key={r.id} role={r} rank={idx + 1} />
       ))}
+
+      {list.length === 0 && (
+        <div
+          style={{
+            border: '1px dashed #DCD6C9',
+            borderRadius: 12,
+            padding: '56px 28px',
+            textAlign: 'center',
+            maxWidth: 760,
+          }}
+        >
+          <div style={{ fontSize: 24, color: '#C4BCAC', marginBottom: 10 }}>◎</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#3A352D' }}>
+            {state.summary.when === 'never' ? 'No roles yet' : 'Nothing matches these filters'}
+          </div>
+          <p
+            style={{
+              fontSize: 12.5,
+              color: 'var(--rr-faint)',
+              maxWidth: 420,
+              margin: '8px auto 16px',
+              lineHeight: 1.55,
+            }}
+          >
+            {state.summary.when === 'never'
+              ? 'Paste your résumé in Profile, add search terms and watchlist companies in Search, then send your scouts out.'
+              : 'Loosen a filter, or run another sweep to bring in fresh postings.'}
+          </p>
+          <button
+            onClick={startRun}
+            className="rr-btn-primary"
+            style={{
+              border: 'none',
+              cursor: 'pointer',
+              padding: '10px 18px',
+              borderRadius: 8,
+              color: '#fff',
+              fontFamily: MONO,
+              fontSize: 11.5,
+              fontWeight: 600,
+              letterSpacing: '0.05em',
+            }}
+          >
+            ▸ SEND SCOUTS
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -388,6 +437,9 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
               {stage ? `In pipeline · ${stage}` : '+ Add to pipeline'}
             </button>
             <button
+              onClick={() => {
+                if (r.url) window.open(r.url, '_blank', 'noopener');
+              }}
               style={{
                 border: '1px solid #D8D2C5',
                 background: 'var(--rr-surface)',
