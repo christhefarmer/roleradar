@@ -154,15 +154,17 @@ type RoleRow = {
 };
 
 function parseJsonField<T>(value: unknown, fallback: T): T {
-  if (value == null) return fallback;
-  if (typeof value === 'string') {
+  // AWSJSON values can arrive wrapped in one or more string layers depending
+  // on which side serialized them — unwrap until we hit a non-string.
+  let v: unknown = value;
+  for (let i = 0; i < 3 && typeof v === 'string'; i++) {
     try {
-      return JSON.parse(value) as T;
+      v = JSON.parse(v);
     } catch {
       return fallback;
     }
   }
-  return value as T;
+  return v == null ? fallback : (v as T);
 }
 
 function daysBetween(a: string | null | undefined, b: Date): number {
@@ -609,7 +611,9 @@ export async function runSweepRemote(
   });
   if (res.errors?.length) throw new Error(res.errors[0].message);
   const result = parseJsonField<SweepResultWire | null>(res.data, null);
-  if (!result) throw new Error('Sweep returned no data');
+  if (!result || !Array.isArray(result.roles)) {
+    throw new Error('Sweep returned an unexpected payload — check the sweep Lambda logs');
+  }
 
   // Upsert into owner-scoped Role rows, keyed by stable sourceId.
   const existing = await listAllRoles();

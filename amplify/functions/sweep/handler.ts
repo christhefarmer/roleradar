@@ -78,14 +78,22 @@ function scoreRole(
 }
 
 export const handler = async (event: SweepEvent): Promise<string> => {
-  // AWSJSON arguments arrive as a JSON string; be tolerant of either shape.
-  const raw = event.arguments?.config;
+  // AWSJSON arguments can arrive wrapped in one or more string layers
+  // depending on which side serialized them — unwrap until non-string.
+  let raw: unknown = event.arguments?.config;
+  for (let i = 0; i < 3 && typeof raw === 'string'; i++) {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = {};
+    }
+  }
   const config: SweepConfig = {
     terms: [],
     watchlist: [],
     excludedCompanies: [],
     activeSources: ['greenhouse', 'eluta'],
-    ...(typeof raw === 'string' ? JSON.parse(raw) : (raw as object) ?? {}),
+    ...(typeof raw === 'object' && raw !== null ? (raw as Partial<SweepConfig>) : {}),
   };
 
   const active = ADAPTERS.filter((a) => config.activeSources.includes(a.id));
