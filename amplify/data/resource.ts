@@ -7,6 +7,7 @@
 // explicit human Approve — never directly from the model.
 
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
+import { resolveBoard } from '../functions/resolve-board/resource';
 import { sweep } from '../functions/sweep/resource';
 
 // Keep the model id in one place; allow upgrade (ARCHITECTURE.md §3).
@@ -116,6 +117,15 @@ const schema = a.schema({
     })
     .returns(a.json())
     .handler(a.handler.function(sweep))
+    .authorization((allow) => [allow.authenticated()]),
+
+  // Board discovery for the watchlist: probe Greenhouse/Lever/Ashby for a
+  // company's public board so entries land with the right provider + slug.
+  resolveBoard: a
+    .mutation()
+    .arguments({ company: a.string().required() })
+    .returns(a.json())
+    .handler(a.handler.function(resolveBoard))
     .authorization((allow) => [allow.authenticated()]),
 
   // ----- AI routes (Amplify AI Kit / Bedrock) -------------------------------

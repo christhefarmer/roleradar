@@ -577,6 +577,8 @@ const PROFILE_SYNC = new Set<Action['type']>([
 ]);
 
 interface Api {
+  /** Probe ATS boards for a company's provider + slug (connected mode). */
+  resolveCompany: (name: string) => Promise<WatchEntry | null>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   confirm: (name: string, email: string, code: string, password: string) => Promise<void>;
@@ -812,6 +814,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<Api>(
     () => ({
+      async resolveCompany(name) {
+        if (!isConnected) return null;
+        try {
+          return await remote.resolveCompanyRemote(name);
+        } catch {
+          return null;
+        }
+      },
       async signIn(email, password) {
         await auth.doSignIn(email, password);
         await hydrateAfterAuth(email.split('@')[0], email);

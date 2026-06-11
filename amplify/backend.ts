@@ -4,10 +4,12 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
+import { resolveBoard } from './functions/resolve-board/resource';
 import { sweep } from './functions/sweep/resource';
 
 defineBackend({
   auth,
   data,
   sweep,
+  resolveBoard,
 });
