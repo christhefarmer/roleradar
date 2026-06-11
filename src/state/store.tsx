@@ -230,6 +230,7 @@ export type Action =
   | { type: 'ADD_TO_PIPE'; id: string }
   | { type: 'REMOVE_FROM_PIPE'; id: string }
   | { type: 'MOVE_STAGE'; id: string; dir: 1 | -1 }
+  | { type: 'ADD_CO'; entry: WatchEntry }
   | { type: 'TOGGLE_PAUSE_CO'; name: string }
   | { type: 'REMOVE_CO'; name: string }
   | { type: 'MUTE_CO'; name: string }
@@ -381,6 +382,16 @@ function reducer(state: AppState, action: Action): AppState {
       const cur = state.pipeline[action.id] ?? 'new';
       const i = Math.max(0, Math.min(STAGE_ORDER.length - 1, STAGE_ORDER.indexOf(cur) + action.dir));
       return { ...state, pipeline: { ...state.pipeline, [action.id]: STAGE_ORDER[i] } };
+    }
+    case 'ADD_CO': {
+      if (state.watchlist.some((w) => w.name.toLowerCase() === action.entry.name.toLowerCase()))
+        return state;
+      return {
+        ...state,
+        watchlist: [...state.watchlist, action.entry],
+        // Invariant: never on the watchlist and excluded at once.
+        excluded: state.excluded.filter((n) => n !== action.entry.name),
+      };
     }
     case 'TOGGLE_PAUSE_CO':
       return {
@@ -544,6 +555,7 @@ function reducer(state: AppState, action: Action): AppState {
 const SEARCH_SYNC = new Set<Action['type']>([
   'ADD_TERM',
   'REMOVE_TERM',
+  'ADD_CO',
   'TOGGLE_PAUSE_CO',
   'REMOVE_CO',
   'MUTE_CO',
@@ -730,31 +742,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Connected: the real Scout Lambda via the startSweep mutation. The
     // per-source list animates while the call is in flight; the v2 upgrade
     // replaces this with live progress over an AppSync subscription.
-    const watchCount = s.watchlist.filter((w) => !s.watchPaused[w.name]).length;
     const termCount = s.termGroups.reduce((n, g) => n + g.terms.length, 0);
-    let sources: RunSource[] = [
-      {
-        name: 'Greenhouse',
-        detail: `ATS JSON · ${watchCount} watchlist compan${watchCount === 1 ? 'y' : 'ies'}`,
-        count: '…',
-        kind: 'auto',
-        status: 'pending',
-      },
-      {
-        name: 'Eluta.ca RSS',
-        detail: `Sanctioned Canadian aggregate · ${termCount} terms`,
-        count: '…',
-        kind: 'auto',
-        status: 'pending',
-      },
-      {
-        name: 'LinkedIn',
-        detail: 'Manual alert inbox — no automated pull',
-        count: 'manual',
-        kind: 'manual',
-        status: 'manual',
-      },
-    ];
+    let sources: RunSource[] = s.sources
+      .filter((x) => x.on && remote.SOURCE_ADAPTER_IDS[x.name])
+      .map((x): RunSource => {
+        const id = remote.SOURCE_ADAPTER_IDS[x.name];
+        if (id === 'eluta') {
+          return {
+            name: remote.ADAPTER_DISPLAY[id],
+            detail: `Sanctioned Canadian aggregate · ${termCount} terms`,
+            count: '…',
+            kind: 'auto',
+            status: 'pending',
+          };
+        }
+        const n = s.watchlist.filter((w) => w.src === x.name && !s.watchPaused[w.name]).length;
+        return {
+          name: remote.ADAPTER_DISPLAY[id],
+          detail: `ATS JSON · ${n} watchlist compan${n === 1 ? 'y' : 'ies'}`,
+          count: '…',
+          kind: 'auto',
+          status: 'pending',
+        };
+      });
+    sources.push({
+      name: 'LinkedIn',
+      detail: 'Manual alert inbox — no automated pull',
+      count: 'manual',
+      kind: 'manual',
+      status: 'manual',
+    });
     rawDispatch({ type: 'RUN_START', sources });
     let tick = 0;
     const ticker = window.setInterval(() => {
@@ -769,9 +786,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const outcome = await remote.runSweepRemote(s, s.resumeText);
         rawDispatch({ type: 'SWEEP_APPLIED', outcome });
-        const adapterNames: Record<string, string> = { greenhouse: 'Greenhouse', eluta: 'Eluta.ca RSS' };
         const finalSources = sources.map((src) => {
-          const entry = outcome.perSource.find((p) => adapterNames[p.id] === src.name);
+          const entry = outcome.perSource.find((p) => remote.ADAPTER_DISPLAY[p.id] === src.name);
           return entry ? { ...src, count: `${entry.count} role${entry.count === 1 ? '' : 's'}` } : src;
         });
         rawDispatch({

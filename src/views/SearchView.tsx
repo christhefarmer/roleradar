@@ -3,6 +3,7 @@
 // pause/resume, remove), excluded companies (rust, un-mute), active sources.
 
 import { useState } from 'react';
+import { normalizeSlug, resolveCareersUrl } from '../lib/ats';
 import { useStore } from '../state/store';
 import { MONO, SectionLabel } from '../ui/primitives';
 
@@ -17,12 +18,27 @@ const SRC_TONE: Record<string, [bg: string, color: string, bd: string]> = {
 export function SearchView() {
   const { state, dispatch } = useStore();
   const [newTerms, setNewTerms] = useState<Record<number, string>>({});
+  const [newCompany, setNewCompany] = useState('');
 
   const addTerm = (gi: number) => {
     const term = (newTerms[gi] || '').trim();
     if (!term) return;
     dispatch({ type: 'ADD_TERM', group: gi, term });
     setNewTerms((m) => ({ ...m, [gi]: '' }));
+  };
+
+  const addCompany = () => {
+    const text = newCompany.trim();
+    if (!text) return;
+    // A pasted careers URL resolves provider + slug; a plain name falls back
+    // to a Greenhouse-slug guess the adapter probes (and skips if missing).
+    const entry = resolveCareersUrl(text) ?? {
+      name: text,
+      src: 'Greenhouse',
+      slug: normalizeSlug(text),
+    };
+    dispatch({ type: 'ADD_CO', entry });
+    setNewCompany('');
   };
 
   const watchlist = state.watchlist.filter((w) => !state.excluded.includes(w.name));
@@ -243,6 +259,43 @@ export function SearchView() {
                 </div>
               );
             })}
+            <div style={{ display: 'flex', gap: 7, padding: '8px 10px 5px' }}>
+              <input
+                value={newCompany}
+                onChange={(e) => setNewCompany(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') addCompany();
+                }}
+                placeholder="company name, or paste a careers URL (Greenhouse / Lever / Ashby)…"
+                style={{
+                  flex: 1,
+                  border: '1px solid var(--rr-border)',
+                  background: 'var(--rr-surface)',
+                  borderRadius: 7,
+                  padding: '8px 11px',
+                  fontFamily: MONO,
+                  fontSize: 11.5,
+                  color: 'var(--rr-ink)',
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={addCompany}
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '8px 14px',
+                  borderRadius: 7,
+                  background: '#211E18',
+                  color: 'var(--rr-paper)',
+                  fontFamily: MONO,
+                  fontSize: 11,
+                  flex: '0 0 auto',
+                }}
+              >
+                + watch
+              </button>
+            </div>
           </div>
 
           {state.excluded.length > 0 && (
