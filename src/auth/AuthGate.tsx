@@ -1,10 +1,11 @@
 // Auth gate — sign in / create account / 6-digit confirm / forgot, on a
-// centered floating card. Mock flow for now; production swaps the handlers
-// for Amplify Auth (Cognito): signIn, signUp, confirmSignUp, resetPassword.
+// centered floating card. Connected mode drives real Cognito flows through
+// the store api; design-fidelity mode passes straight through.
 
 import { useState, type CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { MONO } from '../ui/primitives';
+import { AuthStep } from './authService';
 
 const inputStyle: CSSProperties = {
   width: '100%',
@@ -52,18 +53,59 @@ function FieldLabel({ children, trailing }: { children: React.ReactNode; trailin
   );
 }
 
+function ErrorNote({ message }: { message: string }) {
+  if (!message) return null;
+  return (
+    <div
+      style={{
+        background: 'var(--rr-risk-tint)',
+        border: '1px solid #E6CBBE',
+        borderRadius: 8,
+        padding: '10px 12px',
+        fontSize: 12.5,
+        color: 'var(--rr-risk-strong)',
+        marginBottom: 16,
+        lineHeight: 1.5,
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
 export function AuthGate() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, api } = useStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [resetMsg, setResetMsg] = useState('');
+  const [resetStage, setResetStage] = useState<'email' | 'code'>('email');
+  const [newPassword, setNewPassword] = useState('');
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const mode = state.authMode;
   const setMode = (m: typeof mode) => {
-    setResetMsg('');
+    setError('');
+    setNotice('');
+    setResetStage('email');
     dispatch({ type: 'SET_AUTH_MODE', mode: m });
+  };
+
+  const run = (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError('');
+    fn()
+      .catch((e: unknown) => {
+        if (e instanceof AuthStep && e.step === 'confirm') {
+          setNotice('Your account still needs its email code — we sent a fresh one.');
+          dispatch({ type: 'SET_AUTH_MODE', mode: 'confirm' });
+          return;
+        }
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => setBusy(false));
   };
 
   return (
@@ -110,6 +152,7 @@ export function AuthGate() {
             borderRadius: 16,
             padding: '30px 28px',
             boxShadow: '0 8px 40px rgba(33,30,24,0.07)',
+            opacity: busy ? 0.75 : 1,
           }}
         >
           {mode === 'signin' && (
@@ -118,6 +161,7 @@ export function AuthGate() {
               <div style={{ fontSize: 13, color: '#7A7468', marginTop: 5, marginBottom: 22 }}>
                 Your private job-hunt instrument.
               </div>
+              <ErrorNote message={error} />
               <FieldLabel>EMAIL</FieldLabel>
               <input
                 value={email}
@@ -141,16 +185,20 @@ export function AuthGate() {
               <input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') run(() => api.signIn(email, password));
+                }}
                 type="password"
                 placeholder="••••••••"
                 style={{ ...inputStyle, marginBottom: 20 }}
               />
               <button
-                onClick={() => dispatch({ type: 'SIGN_IN', email })}
+                onClick={() => run(() => api.signIn(email, password))}
+                disabled={busy}
                 className="rr-btn-primary"
                 style={primaryBtnStyle}
               >
-                Sign in →
+                {busy ? 'Signing in…' : 'Sign in →'}
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
                 <span style={{ flex: 1, height: 1, background: '#E8E4DA' }} />
@@ -158,7 +206,11 @@ export function AuthGate() {
                 <span style={{ flex: 1, height: 1, background: '#E8E4DA' }} />
               </div>
               <button
-                onClick={() => dispatch({ type: 'SIGN_IN', email })}
+                onClick={() =>
+                  state.connected
+                    ? setError('Google sign-in is not configured yet — use email & password.')
+                    : run(() => api.signIn(email, password))
+                }
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -208,6 +260,7 @@ export function AuthGate() {
               <div style={{ fontSize: 13, color: '#7A7468', marginTop: 5, marginBottom: 22 }}>
                 Set up your own cockpit in under a minute.
               </div>
+              <ErrorNote message={error} />
               <FieldLabel>DISPLAY NAME</FieldLabel>
               <input
                 value={name}
@@ -234,8 +287,18 @@ export function AuthGate() {
               <div style={{ fontSize: 11, color: 'var(--rr-faint)', marginBottom: 20 }}>
                 At least 8 characters with a number — enforced by Cognito.
               </div>
-              <button onClick={() => setMode('confirm')} className="rr-btn-primary" style={primaryBtnStyle}>
-                Create account →
+              <button
+                onClick={() =>
+                  run(async () => {
+                    await api.signUp(name, email, password);
+                    dispatch({ type: 'SET_AUTH_MODE', mode: 'confirm' });
+                  })
+                }
+                disabled={busy}
+                className="rr-btn-primary"
+                style={primaryBtnStyle}
+              >
+                {busy ? 'Creating…' : 'Create account →'}
               </button>
               <div style={{ textAlign: 'center', marginTop: 20, fontSize: 12.5, color: '#7A7468' }}>
                 Have an account?{' '}
@@ -253,6 +316,22 @@ export function AuthGate() {
                 We sent a 6-digit code to <b style={{ color: '#3A352D' }}>{email || 'your email'}</b>. Enter
                 it to verify your account.
               </div>
+              <ErrorNote message={error} />
+              {notice && (
+                <div
+                  style={{
+                    background: 'var(--rr-primary-tint)',
+                    border: '1px solid #C5DDCB',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    fontSize: 12.5,
+                    color: '#0F6B3B',
+                    marginBottom: 16,
+                  }}
+                >
+                  {notice}
+                </div>
+              )}
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -270,15 +349,24 @@ export function AuthGate() {
                 }}
               />
               <button
-                onClick={() => dispatch({ type: 'VERIFY', name, email })}
+                onClick={() => run(() => api.confirm(name, email, code, password))}
+                disabled={busy}
                 className="rr-btn-primary"
                 style={primaryBtnStyle}
               >
-                Verify &amp; enter →
+                {busy ? 'Verifying…' : 'Verify & enter →'}
               </button>
               <div style={{ textAlign: 'center', marginTop: 20, fontSize: 12.5, color: '#7A7468' }}>
                 Didn't get it?{' '}
-                <button onClick={() => setMode('confirm')} style={linkBtnStyle}>
+                <button
+                  onClick={() =>
+                    run(async () => {
+                      await api.resendCode(email);
+                      setNotice('A fresh code is on its way.');
+                    })
+                  }
+                  style={linkBtnStyle}
+                >
                   Resend code
                 </button>{' '}
                 ·{' '}
@@ -296,17 +384,12 @@ export function AuthGate() {
             <>
               <div style={{ fontSize: 19, fontWeight: 600, color: 'var(--rr-ink)' }}>Reset your password</div>
               <div style={{ fontSize: 13, color: '#7A7468', marginTop: 5, marginBottom: 22 }}>
-                Enter your email and we'll send a reset link.
+                {resetStage === 'email'
+                  ? "Enter your email and we'll send a reset code."
+                  : 'Enter the code from your email and choose a new password.'}
               </div>
-              <FieldLabel>EMAIL</FieldLabel>
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
-                placeholder="you@example.com"
-                style={{ ...inputStyle, marginBottom: 16 }}
-              />
-              {resetMsg && (
+              <ErrorNote message={error} />
+              {notice && (
                 <div
                   style={{
                     background: 'var(--rr-primary-tint)',
@@ -318,16 +401,70 @@ export function AuthGate() {
                     marginBottom: 16,
                   }}
                 >
-                  {resetMsg}
+                  {notice}
                 </div>
               )}
-              <button
-                onClick={() => setResetMsg('If that email has an account, a reset link is on its way.')}
-                className="rr-btn-primary"
-                style={primaryBtnStyle}
-              >
-                Send reset link
-              </button>
+              {resetStage === 'email' ? (
+                <>
+                  <FieldLabel>EMAIL</FieldLabel>
+                  <input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    placeholder="you@example.com"
+                    style={{ ...inputStyle, marginBottom: 16 }}
+                  />
+                  <button
+                    onClick={() =>
+                      run(async () => {
+                        await api.startReset(email);
+                        setNotice('If that email has an account, a reset code is on its way.');
+                        if (state.connected) setResetStage('code');
+                      })
+                    }
+                    disabled={busy}
+                    className="rr-btn-primary"
+                    style={primaryBtnStyle}
+                  >
+                    {busy ? 'Sending…' : 'Send reset code'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <FieldLabel>CODE</FieldLabel>
+                  <input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    maxLength={6}
+                    inputMode="numeric"
+                    placeholder="••••••"
+                    style={{ ...inputStyle, fontFamily: MONO, letterSpacing: '0.3em', marginBottom: 16 }}
+                  />
+                  <FieldLabel>NEW PASSWORD</FieldLabel>
+                  <input
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    type="password"
+                    placeholder="8+ characters"
+                    style={{ ...inputStyle, marginBottom: 20 }}
+                  />
+                  <button
+                    onClick={() =>
+                      run(async () => {
+                        await api.confirmReset(email, code, newPassword);
+                        setNotice('');
+                        setCode('');
+                        setMode('signin');
+                      })
+                    }
+                    disabled={busy}
+                    className="rr-btn-primary"
+                    style={primaryBtnStyle}
+                  >
+                    {busy ? 'Resetting…' : 'Set new password →'}
+                  </button>
+                </>
+              )}
               <div style={{ textAlign: 'center', marginTop: 20, fontSize: 12.5 }}>
                 <button
                   onClick={() => setMode('signin')}

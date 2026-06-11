@@ -2,7 +2,6 @@
 // Recommended · Search · Pipeline; Profile is reached only via the user menu.
 
 import { useState } from 'react';
-import { GEMS } from '../data/seed';
 import type { ViewKey } from '../domain/types';
 import { useStore } from '../state/store';
 import { HatGlasses } from '../ui/HatGlasses';
@@ -23,10 +22,10 @@ function initials(name: string): string {
 }
 
 export function Sidebar() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, api } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const gemOpen = GEMS.filter((g) => !state.gemDecisions[g.id]).length;
+  const gemOpen = state.gems.filter((g) => !state.gemDecisions[g.id]).length;
   const queue = state.proposals.filter((p) => !state.proposalState[p.id]).length;
   const badges: Partial<Record<ViewKey, number>> = { radar: queue, gems: gemOpen };
 
@@ -155,7 +154,7 @@ export function Sidebar() {
             </div>
             <button
               onClick={() => {
-                dispatch({ type: 'SIGN_OUT' });
+                void api.signOut();
                 setMenuOpen(false);
               }}
               style={menuItemStyle('var(--rr-risk)')}

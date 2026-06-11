@@ -1,86 +1,102 @@
-// The sweep — the Scouts' agentic run, as one Lambda invocation:
-// fetch all active adapters → normalize → dedup by sourceId → score fit vs
-// résumé profile → flag phantoms (seenCount over time) → detect hidden gems
-// (content/company signal) → persist + emit proposals.
+// The sweep — the Scouts' agentic run, invoked as the `startSweep` mutation
+// handler: fetch all active adapters → normalize → dedup by sourceId → score
+// vs the owner's terms → detect hidden gems → return scored postings. The
+// client persists them into owner-scoped Role rows (so every write stays
+// inside the owner's authorization) and runs the AI fit refinement on the
+// top matches via the `generateFit` route.
 //
-// Data access: once the sandbox/branch deploys, grant this function access to
-// the Data API (`a.schema(...).authorization(allow => allow.resource(sweep))`
-// on the models it touches) and persist through the generated client from
-// `$amplify/env/sweep` + generateClient<Schema>(). Fit scoring below is the
-// deterministic keyword baseline; the AI `generateFit` route refines the
-// breakdown for surfaced roles.
+// v1 is synchronous and must finish inside AppSync's 30s resolver window —
+// fine for a modest watchlist. The upgrade path (ARCHITECTURE.md §2) is an
+// async job writing per-source progress to SweepRun behind a subscription.
 
 import { eluta } from './adapters/eluta';
 import { greenhouse } from './adapters/greenhouse';
-import type { FetchConfig, NormalizedRole, SourceAdapter } from './adapters/types';
+import type { NormalizedRole, SourceAdapter, WatchlistEntry } from './adapters/types';
 
 // Adapter registry, priority order: ATS (watchlist) → Eluta → remote-first
 // feeds → LinkedIn (manual paste — no automated fetch, ever).
 const ADAPTERS: SourceAdapter[] = [greenhouse, eluta];
 
+interface SweepConfig {
+  terms: string[];
+  watchlist: WatchlistEntry[];
+  excludedCompanies: string[];
+  /** Adapter ids toggled on in Search → Active sources. */
+  activeSources: string[];
+}
+
+/** AppSync direct-Lambda resolver event for the startSweep mutation. */
 interface SweepEvent {
-  /** Owner identity — scopes every read and write. */
-  owner: string;
-  config: FetchConfig & {
-    excludedCompanies: string[];
-    activeSources: string[];
-  };
+  arguments: { config: unknown };
+  identity?: { sub?: string };
 }
 
 export interface ScoredRole extends NormalizedRole {
   score: number;
   matchedTerms: string[];
+  titleHit: boolean;
   gem: { subtype: 'content' | 'company'; matches: string[] } | null;
 }
 
-interface SweepResult {
+export interface SweepResult {
   fetched: number;
-  kept: number;
+  deduped: number;
   excluded: number;
+  kept: number;
   gems: number;
+  perSource: { id: string; count: number }[];
   roles: ScoredRole[];
   summary: string;
 }
 
 /** Baseline content score: weighted term hits across title + description.
  *  A generic title with a description full of the owner's stack outranks a
- *  title-only hit — that asymmetry is what surfaces hidden gems. */
-function scoreRole(role: NormalizedRole, terms: string[]): { score: number; matched: string[] } {
+ *  title-only hit — that asymmetry is what surfaces hidden gems. The AI
+ *  `generateFit` route refines the per-dimension read for surfaced roles. */
+function scoreRole(
+  role: NormalizedRole,
+  terms: string[],
+): { score: number; matched: string[]; titleHit: boolean } {
   const title = role.title.toLowerCase();
   const body = role.rawDescription.toLowerCase();
   const matched: string[] = [];
   let score = 0;
+  let titleHit = false;
   for (const term of terms) {
     const t = term.toLowerCase();
+    if (!t) continue;
     if (title.includes(t)) {
       score += 12;
+      titleHit = true;
       matched.push(term);
     } else if (body.includes(t)) {
       score += 7;
       matched.push(term);
     }
   }
-  return { score: Math.min(100, score), matched };
+  return { score: Math.min(100, score), matched, titleHit };
 }
 
-function detectGem(role: NormalizedRole, score: number, matched: string[], titleHit: boolean) {
-  // Content match: the title missed every search term but the description is
-  // dense with the owner's stack.
-  if (!titleHit && score >= 40) {
-    return { subtype: 'content' as const, matches: matched };
-  }
-  return null;
-}
+export const handler = async (event: SweepEvent): Promise<string> => {
+  // AWSJSON arguments arrive as a JSON string; be tolerant of either shape.
+  const raw = event.arguments?.config;
+  const config: SweepConfig = {
+    terms: [],
+    watchlist: [],
+    excludedCompanies: [],
+    activeSources: ['greenhouse', 'eluta'],
+    ...(typeof raw === 'string' ? JSON.parse(raw) : (raw as object) ?? {}),
+  };
 
-export const handler = async (event: SweepEvent): Promise<SweepResult> => {
-  const { config } = event;
   const active = ADAPTERS.filter((a) => config.activeSources.includes(a.id));
 
-  // 1. Fetch + normalize, adapter by adapter (progress lands on SweepRun).
+  // 1. Fetch + normalize, adapter by adapter.
   const normalized: NormalizedRole[] = [];
+  const perSource: { id: string; count: number }[] = [];
   for (const adapter of active) {
-    const raw = await adapter.fetch(config);
-    normalized.push(...raw.map((r) => adapter.normalize(r)));
+    const rawPostings = await adapter.fetch({ terms: config.terms, watchlist: config.watchlist });
+    perSource.push({ id: adapter.id, count: rawPostings.length });
+    normalized.push(...rawPostings.map((r) => adapter.normalize(r)));
   }
   const fetched = normalized.length;
 
@@ -94,26 +110,43 @@ export const handler = async (event: SweepEvent): Promise<SweepResult> => {
 
   // 3. Exclusion list is the true omit — filters across every source.
   const excludedSet = new Set(config.excludedCompanies.map((c) => c.toLowerCase()));
-  const kept = [...byId.values()].filter((r) => !excludedSet.has(r.company.toLowerCase()));
-  const excluded = byId.size - kept.length;
+  const keptRoles = [...byId.values()].filter((r) => !excludedSet.has(r.company.toLowerCase()));
+  const excluded = byId.size - keptRoles.length;
 
-  // 4. Score + gem-detect.
-  const roles: ScoredRole[] = kept.map((role) => {
-    const { score, matched } = scoreRole(role, config.terms);
-    const titleHit = config.terms.some((t) => role.title.toLowerCase().includes(t.toLowerCase()));
-    return { ...role, score, matchedTerms: matched, gem: detectGem(role, score, matched, titleHit) };
-  });
-
-  // 5. Persist: upsert Role rows by sourceId (incrementing seenCount /
-  //    seenRuns for phantom detection), refresh fit via the generateFit AI
-  //    route for newly surfaced roles, and emit Proposal rows (new terms,
-  //    companies worth watching, phantoms worth muting) for the owner to
-  //    approve. — wired up with the function's Data client at deploy time.
+  // 4. Score + gem-detect (content match: title missed every term but the
+  //    description is dense with the owner's stack).
+  const watchSet = new Set(config.watchlist.map((w) => w.company.toLowerCase()));
+  const roles: ScoredRole[] = keptRoles
+    .map((role) => {
+      const { score, matched, titleHit } = scoreRole(role, config.terms);
+      const gem =
+        !titleHit && score >= 40
+          ? { subtype: 'content' as const, matches: matched }
+          : !titleHit && score >= 25 && watchSet.has(role.company.toLowerCase())
+            ? { subtype: 'company' as const, matches: matched }
+            : null;
+      return { ...role, score, matchedTerms: matched, titleHit, gem };
+    })
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    // Keep the response well inside AppSync's payload limits.
+    .slice(0, 80)
+    .map((r) => ({ ...r, rawDescription: r.rawDescription.slice(0, 4000) }));
 
   const gems = roles.filter((r) => r.gem).length;
-  const summary =
-    `Fetched ${fetched} roles → deduped to ${byId.size} by stable id → ` +
-    `${excluded} excluded → ${gems} hidden gems surfaced.`;
+  const result: SweepResult = {
+    fetched,
+    deduped: byId.size,
+    excluded,
+    kept: roles.length,
+    gems,
+    perSource,
+    roles,
+    summary:
+      `Fetched ${fetched} roles → deduped to ${byId.size} by stable id → ` +
+      `${excluded} excluded → ${roles.length} kept → ${gems} hidden gems surfaced.`,
+  };
 
-  return { fetched, kept: roles.length, excluded, gems, roles, summary };
+  // AWSJSON return — serialize once here; the client parses defensively.
+  return JSON.stringify(result);
 };

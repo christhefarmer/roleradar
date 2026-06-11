@@ -250,13 +250,13 @@ export function ScoutsView() {
               <div
                 style={{
                   marginTop: 14,
-                  background: 'var(--rr-primary-tint)',
-                  border: '1px solid #C5DDCB',
+                  background: state.runError ? 'var(--rr-risk-tint)' : 'var(--rr-primary-tint)',
+                  border: `1px solid ${state.runError ? '#E6CBBE' : '#C5DDCB'}`,
                   borderRadius: 10,
                   padding: '13px 16px',
                   fontFamily: MONO,
                   fontSize: 11.5,
-                  color: '#0F6B3B',
+                  color: state.runError ? 'var(--rr-risk-strong)' : '#0F6B3B',
                   lineHeight: 1.65,
                 }}
               >
@@ -273,8 +273,25 @@ export function ScoutsView() {
       <div style={{ fontSize: 12.5, color: '#7A7468', marginBottom: 13 }}>
         Every hidden role traces back to a strength on your profile. No black-box expansion.
       </div>
+      {state.connected && (
+        <div
+          style={{
+            border: '1px dashed #DCD6C9',
+            borderRadius: 10,
+            padding: '20px 18px',
+            marginBottom: 26,
+            fontSize: 12.5,
+            color: 'var(--rr-faint)',
+            lineHeight: 1.55,
+            maxWidth: 760,
+          }}
+        >
+          Traces appear once the AI expansion pass runs on your sweeps — parse your profile, run a
+          sweep, and the scouts will start reasoning from your strengths.
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 26 }}>
-        {TRACES.map((t) => (
+        {(state.connected ? [] : TRACES).map((t) => (
           <div
             key={t.from}
             style={{

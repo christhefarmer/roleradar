@@ -3,14 +3,15 @@
 // sweep summary, featured match, approval cards, quick replies, chat), with
 // the full-cockpit escape hatch as a bottom sheet.
 //
-// Production wiring: the sweep animation tracks the real async sweep job via
-// an AppSync subscription (not a fixed timer), and the chat streams from the
-// AI Kit conversation route.
+// Connected mode drives the real loop: the sweep is the Scout Lambda, the
+// featured match is the owner's top-scoring role, the approval cards are real
+// Proposal rows, and the chat streams from the AI Kit conversation route.
+// Design mode keeps the prototype's scripted briefing.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { botReply } from '../data/botReplies';
 import { FEATURED_MATCH, MOBILE_PROPOSALS, MOBILE_SWEEP } from '../data/seed';
-import type { ChatMessage, ViewKey } from '../domain/types';
+import type { ChatMessage, Proposal, ViewKey } from '../domain/types';
 import { useStore } from '../state/store';
 import { HatGlasses, RadarAvatar } from '../ui/HatGlasses';
 import { MONO } from '../ui/primitives';
@@ -38,19 +39,22 @@ const INITIAL_CHAT: ChatMessage[] = [
 ];
 
 export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) => void }) {
-  const { state, dispatch } = useStore();
-  const [phase, setPhase] = useState<Phase>('splash');
+  const { state, dispatch, startRun, api } = useStore();
+  const connected = state.connected;
+
+  const [splashDone, setSplashDone] = useState(false);
+  const [localPhase, setLocalPhase] = useState<Phase>('sweep');
   const [sweepDone, setSweepDone] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [chat, setChat] = useState<ChatMessage[]>(INITIAL_CHAT);
+  const [localChat, setLocalChat] = useState<ChatMessage[]>(INITIAL_CHAT);
   const [input, setInput] = useState('');
   const sweeping = useRef(false);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  const runSweep = useCallback(() => {
+  const runLocalSweep = useCallback(() => {
     if (sweeping.current) return;
     sweeping.current = true;
-    setPhase('sweep');
+    setLocalPhase('sweep');
     setSweepDone(0);
     let i = 0;
     const step = () => {
@@ -60,28 +64,100 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
       else
         setTimeout(() => {
           sweeping.current = false;
-          setPhase('brief');
+          setLocalPhase('brief');
         }, 700);
     };
     setTimeout(step, 550);
   }, []);
 
-  useEffect(() => {
-    const t = setTimeout(runSweep, 1100);
-    return () => clearTimeout(t);
-  }, [runSweep]);
+  const replay = useCallback(() => {
+    if (connected) startRun();
+    else runLocalSweep();
+  }, [connected, startRun, runLocalSweep]);
 
+  // Launch feel: splash, then the sweep. Connected mode kicks off a real
+  // sweep on cold start (the briefing settles in when the Lambda returns).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSplashDone(true);
+      replay();
+    }, 1100);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const phase: Phase = !splashDone
+    ? 'splash'
+    : connected
+      ? state.running
+        ? 'sweep'
+        : 'brief'
+      : localPhase;
+
+  // Connected: the briefing is the live account — chat history, the top
+  // match, and pending proposals.
+  const proposals: Proposal[] = connected ? state.proposals : MOBILE_PROPOSALS;
+  const pendingProposals = proposals.filter((p) => !state.proposalState[p.id]);
+  const topRole = connected
+    ? [...state.roles]
+        .filter((r) => !state.dismissed[r.id] && !state.excluded.includes(r.company) && !r.down)
+        .sort((a, b) => b.score - a.score)[0]
+    : undefined;
+  const featured = connected
+    ? topRole && {
+        id: topRole.id,
+        title: topRole.title,
+        meta: `${topRole.company} · ${topRole.location} · ${topRole.posted}${topRole.posted.includes('seen') ? '' : ' ago'}`,
+        score: topRole.score,
+        reasons: topRole.chips.filter(([, tone]) => tone === 'good').slice(0, 2).map(([t]) => t),
+      }
+    : { id: 'onepass', ...FEATURED_MATCH };
+
+  const messages: ChatMessage[] = connected
+    ? [
+        ...state.chat.filter((m) => m.role === 'bot' || m.role === 'user'),
+        ...(featured ? ([{ role: 'match' }] as ChatMessage[]) : []),
+        ...(pendingProposals.length ? ([{ role: 'proposals' }] as ChatMessage[]) : []),
+      ]
+    : localChat;
+
+  const lastLen = messages[messages.length - 1]?.text?.length ?? 0;
   useEffect(() => {
     const el = chatRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [chat.length]);
+  }, [messages.length, lastLen]);
 
   const send = (text?: string) => {
     const t = (text ?? input).trim();
     if (!t) return;
-    setChat((c) => [...c, { role: 'user', text: t }, { role: 'bot', text: botReply(t, true) }]);
+    if (connected) {
+      if (!state.chatBusy) api.sendChat(t);
+    } else {
+      setLocalChat((c) => [...c, { role: 'user', text: t }, { role: 'bot', text: botReply(t, true) }]);
+    }
     setInput('');
   };
+
+  const sweepRows = connected
+    ? state.runSources.map((s) => ({
+        name: s.name,
+        done: s.status === 'done',
+        scanning: s.status === 'scanning',
+        stat:
+          s.status === 'done'
+            ? `✓ ${s.count}`
+            : s.status === 'scanning'
+              ? 'scanning…'
+              : s.status === 'manual'
+                ? 'manual'
+                : 'queued',
+      }))
+    : MOBILE_SWEEP.map((s, idx) => ({
+        name: s.name,
+        done: idx < sweepDone,
+        scanning: idx === sweepDone,
+        stat: idx < sweepDone ? `✓ ${s.count} roles` : idx === sweepDone ? 'scanning…' : 'queued',
+      }));
 
   if (phase === 'splash') {
     return (
@@ -189,11 +265,15 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
                 textOverflow: 'ellipsis',
               }}
             >
-              {phase === 'sweep' ? 'scouts on patrol…' : 'on · scouts back just now'}
+              {phase === 'sweep'
+                ? 'scouts on patrol…'
+                : connected
+                  ? `on · last sweep ${state.summary.when}`
+                  : 'on · scouts back just now'}
             </span>
           </div>
         </div>
-        <button onClick={runSweep} title="Re-run sweep" style={headerBtnStyle}>
+        <button onClick={replay} title="Re-run sweep" style={headerBtnStyle}>
           ↻
         </button>
         <button onClick={() => setSheetOpen(true)} title="Full cockpit" style={headerBtnStyle}>
@@ -262,35 +342,31 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
             SCOUTS ON PATROL…
           </div>
           <div style={{ width: '100%', maxWidth: 248, marginTop: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {MOBILE_SWEEP.map((s, idx) => {
-              const done = idx < sweepDone;
-              const scanning = idx === sweepDone;
-              return (
-                <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: done ? 'var(--rr-primary)' : scanning ? '#C39237' : '#D8D3C8',
-                      flex: '0 0 auto',
-                    }}
-                  />
-                  <span style={{ flex: 1, fontSize: 12, color: done || scanning ? '#3A352D' : '#A39C8B' }}>
-                    {s.name}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: MONO,
-                      fontSize: 10,
-                      color: done ? '#0F6B3B' : scanning ? '#8A5E14' : '#B0A899',
-                    }}
-                  >
-                    {done ? `✓ ${s.count} roles` : scanning ? 'scanning…' : 'queued'}
-                  </span>
-                </div>
-              );
-            })}
+            {sweepRows.map((s) => (
+              <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: s.done ? 'var(--rr-primary)' : s.scanning ? '#C39237' : '#D8D3C8',
+                    flex: '0 0 auto',
+                  }}
+                />
+                <span style={{ flex: 1, fontSize: 12, color: s.done || s.scanning ? '#3A352D' : '#A39C8B' }}>
+                  {s.name}
+                </span>
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 10,
+                    color: s.done ? '#0F6B3B' : s.scanning ? '#8A5E14' : '#B0A899',
+                  }}
+                >
+                  {s.stat}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       ) : (
@@ -301,7 +377,7 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
             data-rr="mchat"
             style={{ flex: 1, overflowY: 'auto', padding: 15, display: 'flex', flexDirection: 'column', gap: 12 }}
           >
-            {chat.map((m, i) => {
+            {messages.map((m, i) => {
               if (m.role === 'bot')
                 return (
                   <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -334,11 +410,16 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
                         textWrap: 'pretty',
                       }}
                     >
-                      {m.text}
+                      {m.text ||
+                        (state.chatBusy ? (
+                          <span style={{ fontFamily: MONO, color: '#A39C8B' }}>scouts reasoning…</span>
+                        ) : (
+                          '…'
+                        ))}
                     </div>
                   </div>
                 );
-              if (m.role === 'match')
+              if (m.role === 'match' && featured)
                 return (
                   <div
                     key={i}
@@ -353,7 +434,7 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                       <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: 'var(--rr-ink)', lineHeight: 1.25 }}>
-                        {FEATURED_MATCH.title}
+                        {featured.title}
                       </span>
                       <span
                         style={{
@@ -371,7 +452,7 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
                       </span>
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 11, color: '#8A8475', marginTop: 4 }}>
-                      {FEATURED_MATCH.meta}
+                      {featured.meta}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11 }}>
                       <span
@@ -389,12 +470,12 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
                         MATCH
                       </span>
                       <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 600, color: '#0F6B3B' }}>
-                        {FEATURED_MATCH.score}
+                        {featured.score}
                         <span style={{ fontSize: 9, color: '#B8B0A0' }}>/100</span>
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-                      {FEATURED_MATCH.reasons.map((r) => (
+                      {featured.reasons.map((r) => (
                         <span
                           key={r}
                           style={{
@@ -413,7 +494,7 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
                     </div>
                     <div style={{ display: 'flex', gap: 7, marginTop: 13 }}>
                       <button
-                        onClick={() => dispatch({ type: 'ADD_TO_PIPE', id: 'onepass' })}
+                        onClick={() => dispatch({ type: 'ADD_TO_PIPE', id: featured.id })}
                         className="rr-btn-primary"
                         style={{
                           flex: 1,
@@ -427,10 +508,10 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
                           fontWeight: 600,
                         }}
                       >
-                        Save to pipeline
+                        {state.pipeline[featured.id] ? '✓ In pipeline' : 'Save to pipeline'}
                       </button>
                       <button
-                        onClick={() => send('Why is 1Password a match?')}
+                        onClick={() => send(`Why is ${featured.title} at the top?`)}
                         style={{
                           border: '1px solid #E2DDD1',
                           background: 'var(--rr-surface)',
@@ -450,7 +531,7 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
               if (m.role === 'proposals')
                 return (
                   <div key={i} style={{ marginLeft: 31, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {MOBILE_PROPOSALS.map((p) => {
+                    {proposals.map((p) => {
                       const st = state.proposalState[p.id];
                       const tone = proposalTone(p.tone);
                       return (
@@ -538,23 +619,25 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
                     })}
                   </div>
                 );
-              return (
-                <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <div
-                    style={{
-                      maxWidth: '80%',
-                      background: 'var(--rr-primary)',
-                      color: '#fff',
-                      borderRadius: '13px 3px 13px 13px',
-                      padding: '10px 13px',
-                      fontSize: 13.5,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {m.text}
+              if (m.role === 'user')
+                return (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <div
+                      style={{
+                        maxWidth: '80%',
+                        background: 'var(--rr-primary)',
+                        color: '#fff',
+                        borderRadius: '13px 3px 13px 13px',
+                        padding: '10px 13px',
+                        fontSize: 13.5,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {m.text}
+                    </div>
                   </div>
-                </div>
-              );
+                );
+              return null;
             })}
           </div>
 

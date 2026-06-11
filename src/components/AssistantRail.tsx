@@ -18,14 +18,15 @@ const PROMPTS = [
 ];
 
 export function AssistantRail() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, api } = useStore();
   const [input, setInput] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
 
+  const lastLen = state.chat[state.chat.length - 1]?.text?.length ?? 0;
   useEffect(() => {
     const el = chatRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [state.chat.length]);
+  }, [state.chat.length, lastLen]);
 
   const queue = state.proposals.filter((p) => !state.proposalState[p.id]).length;
 
@@ -77,8 +78,8 @@ export function AssistantRail() {
 
   const send = (text?: string) => {
     const t = (text ?? input).trim();
-    if (!t) return;
-    dispatch({ type: 'SEND_CHAT', text: t });
+    if (!t || state.chatBusy) return;
+    api.sendChat(t);
     setInput('');
   };
 
@@ -179,7 +180,12 @@ export function AssistantRail() {
                     textWrap: 'pretty',
                   }}
                 >
-                  {m.text}
+                  {m.text ||
+                    (state.chatBusy ? (
+                      <span style={{ fontFamily: MONO, color: '#A39C8B' }}>scouts reasoning…</span>
+                    ) : (
+                      '…'
+                    ))}
                 </div>
                 {m.showProposals && (
                   <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>

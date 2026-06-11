@@ -7,6 +7,7 @@
 // explicit human Approve — never directly from the model.
 
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
+import { sweep } from '../functions/sweep/resource';
 
 // Keep the model id in one place; allow upgrade (ARCHITECTURE.md §3).
 const AI_MODEL = a.ai.model('Claude Sonnet 4.6');
@@ -99,6 +100,24 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.owner()]),
 
+  // ----- The sweep — Scouts on demand ---------------------------------------
+
+  // Synchronous v1: the client sends its search config, the Lambda fans out
+  // across adapters and returns normalized + scored postings; the client
+  // persists them into owner-scoped Role rows. Upgrade path (ARCHITECTURE.md
+  // §2): an async job writing progress to SweepRun behind an AppSync
+  // subscription — needed once a sweep can outgrow AppSync's 30s resolver cap.
+  startSweep: a
+    .mutation()
+    .arguments({
+      // JSON: { terms: string[], watchlist: [...], excludedCompanies: [...],
+      //         activeSources: string[] }
+      config: a.json().required(),
+    })
+    .returns(a.json())
+    .handler(a.handler.function(sweep))
+    .authorization((allow) => [allow.authenticated()]),
+
   // ----- AI routes (Amplify AI Kit / Bedrock) -------------------------------
 
   // Conversation route — "Radar". Multi-turn, streaming, history persisted
@@ -144,6 +163,38 @@ const schema = a.schema({
       ],
     })
     .authorization((allow) => allow.owner()),
+
+  // Generation route — résumé parse. Extracts strengths (mapped to the fit
+  // dimensions), suggested search terms, and watchlist candidates. Heuristic
+  // hints the owner confirms or edits — never overrides their judgment.
+  parseProfile: a
+    .generation({
+      aiModel: AI_MODEL,
+      systemPrompt: [
+        'You parse a résumé (and optional LinkedIn text) for a job-hunt scout.',
+        'Extract: (1) strengths — up to 8, each mapped to one fit dimension key',
+        '(macos, intune, identity, security, build, client, level) with a short',
+        'label, confidence HIGH | MED | RARE (RARE = an unusual edge worth',
+        'cross-listing), a weight 1-3, a bar 0-100, and a short evidence quote',
+        'lifted from the text; (2) suggestedTerms — job-search terms this person',
+        'should query; (3) suggestedCompanies — [{ name, reason }] employers worth',
+        'watching; (4) facts — { seniority, location, canadaEligible: boolean }.',
+        'Be honest and grounded in the text; do not invent experience.',
+      ].join(' '),
+    })
+    .arguments({
+      resumeText: a.string().required(),
+      linkedinText: a.string(),
+    })
+    .returns(
+      a.customType({
+        strengths: a.json().required(),
+        suggestedTerms: a.string().array(),
+        suggestedCompanies: a.json(),
+        facts: a.json(),
+      }),
+    )
+    .authorization((allow) => allow.authenticated()),
 
   // Generation route — structured fit explanation per role. One-shot, typed
   // output; powers the signature fit-with-reasoning card.

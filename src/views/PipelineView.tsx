@@ -1,7 +1,7 @@
 // Pipeline — stages stacked top→bottom (New → … → Closed), each a band with
 // a responsive card grid. Cards: title, company, eligibility, ↑ ↓ ×.
 
-import { GEMS, PIPE_STAGES, ROLES } from '../data/seed';
+import { PIPE_STAGES } from '../data/seed';
 import type { Eligibility } from '../domain/types';
 import { useStore } from '../state/store';
 import { EligBadge, MONO } from '../ui/primitives';
@@ -17,7 +17,7 @@ export function PipelineView() {
   const { state, dispatch } = useStore();
 
   const byId = new Map<string, PipeCard>();
-  for (const r of [...ROLES, ...GEMS]) {
+  for (const r of [...state.roles, ...state.gems]) {
     byId.set(r.id, { id: r.id, title: r.title, company: r.company, elig: r.elig });
   }
 

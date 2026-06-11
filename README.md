@@ -31,10 +31,26 @@ npm run build      # typecheck + production build (PWA assets included)
 npm run sandbox    # ampx sandbox — deploys the Amplify backend (needs AWS creds)
 ```
 
-The app currently runs in **design-fidelity mode**: every view, interaction and
-the scripted Radar replies work against the seed data ported from the prototypes
-(`src/data/seed.ts`). The Amplify backend under `amplify/` is defined and
-type-checked; wiring the UI to it is the next milestone (see below).
+The app has two modes, switched automatically by the presence of
+`amplify_outputs.json` (written by `ampx sandbox` locally or `ampx
+pipeline-deploy` in Amplify Hosting):
+
+- **Connected mode** (deployed): real Cognito sign-up/sign-in, an empty account
+  created on first login, Profile/SearchConfig/Role/Proposal persistence in
+  owner-scoped Amplify Data, the Scout sweep Lambda behind the `startSweep`
+  mutation, AI résumé parsing + fit refinement, and the Radar chat streaming
+  from the Bedrock conversation route.
+- **Design-fidelity mode** (no outputs file): every view and interaction runs
+  on the prototype seed (`src/data/seed.ts`) with scripted Radar replies —
+  no AWS needed. This is local dev and design review.
+
+**Going live checklist** (after a deploy):
+1. Enable **Bedrock model access** for the configured Claude model in the
+   app's region (Bedrock console → Model access) — the chat, résumé parse and
+   AI fit reads need it; everything else degrades gracefully without it.
+2. The sweep currently runs synchronously inside AppSync's 30s resolver cap —
+   fine for a modest watchlist; the async-job + subscription upgrade is the
+   documented next step (ARCHITECTURE.md §2).
 
 - **Desktop** (>820px): the three-column cockpit — sidebar → main → assistant rail.
 - **Mobile** (≤820px) or installed PWA (`/?source=pwa`): opens straight into the
@@ -84,7 +100,11 @@ scripts/make-icons.mjs   Generates the PWA icon set (runs automatically before b
 - [x] Generation route for fit explanations (`generateFit`)
 - [x] `vite-plugin-pwa` + manifest + maskable icons (placeholder renders — replace with final art)
 - [x] `DESIGN.md` tokens adopted (`src/theme.css`)
-- [ ] Deploy sandbox; grant the sweep function Data access and persist sweep results
-- [ ] Swap seed/scripted layers for Amplify Data + `useAIConversation`
+- [x] Real auth (Cognito) + empty-account bootstrap + Profile/SearchConfig/Role/Proposal persistence
+- [x] Sweep wired end-to-end (`startSweep` mutation → owner-side persistence → AI fit refinement)
+- [x] Radar chat streaming from the AI Kit conversation route
+- [ ] Async sweep job with live per-source progress over an AppSync subscription
+- [ ] Watchlist slug resolution from pasted careers URLs (Greenhouse/Lever/Ashby/Workday)
+- [ ] LinkedIn manual paste-in on-ramp (ARCHITECTURE.md §2 flow C)
 - [ ] Self-host IBM Plex; `npx @google/design.md lint` in CI
 - [ ] MCP stays behind a feature flag until the core sweep is solid (§4)

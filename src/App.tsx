@@ -64,6 +64,27 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (state.boot === 'checking') {
+    // Connected mode: restoring the Cognito session.
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--rr-paper)',
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: 12,
+          letterSpacing: '0.14em',
+          color: 'var(--rr-faint)',
+        }}
+      >
+        ROLE&nbsp;RADAR
+      </div>
+    );
+  }
+
   if (!state.authed) return <AuthGate />;
 
   if (isMobile && mode === 'bot') {

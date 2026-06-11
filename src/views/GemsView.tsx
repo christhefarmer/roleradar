@@ -1,12 +1,12 @@
 // Hidden Gems — gold-keyed cards, each leading with *why it surfaced*
 // (content match or company signal) and Confirm → promote / Dismiss.
 
-import { GEMS } from '../data/seed';
 import { useStore } from '../state/store';
 import { EligBadge, MONO } from '../ui/primitives';
 
 export function GemsView() {
   const { state, dispatch } = useStore();
+  const gems = state.gems.filter((g) => !state.excluded.includes(g.company));
 
   return (
     <>
@@ -36,7 +36,26 @@ export function GemsView() {
         </div>
       </div>
 
-      {GEMS.map((g) => {
+      {gems.length === 0 && (
+        <div
+          style={{
+            border: '1px dashed #E6D4A6',
+            borderRadius: 12,
+            padding: '48px 28px',
+            textAlign: 'center',
+            maxWidth: 760,
+          }}
+        >
+          <div style={{ fontSize: 24, color: '#D8C58F', marginBottom: 10 }}>◆</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#5C4413' }}>No gems yet</div>
+          <p style={{ fontSize: 12.5, color: '#9A8755', maxWidth: 420, margin: '8px auto 0', lineHeight: 1.55 }}>
+            Gems surface when a sweep finds a role whose title missed your terms but whose content
+            matches your stack. Run sweeps regularly — these are the ones worth the patience.
+          </p>
+        </div>
+      )}
+
+      {gems.map((g) => {
         const d = state.gemDecisions[g.id];
         return (
           <div

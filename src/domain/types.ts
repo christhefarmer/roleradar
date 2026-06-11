@@ -40,6 +40,10 @@ export interface PhantomSignal {
 
 export interface Role {
   id: string;
+  /** Amplify Data record id (connected mode only). */
+  recordId?: string;
+  /** Original posting URL (connected mode). */
+  url?: string;
   title: string;
   company: string;
   location: string;
@@ -64,6 +68,8 @@ export type GemSubtype = 'CONTENT MATCH' | 'COMPANY SIGNAL';
 
 export interface Gem {
   id: string;
+  /** Amplify Data record id (connected mode only). */
+  recordId?: string;
   title: string;
   company: string;
   location: string;
@@ -89,12 +95,16 @@ export type ProposalTone = 'good' | 'warn' | 'bad';
 /** A Radar proposal — the bot may propose; only an explicit Approve acts. */
 export interface Proposal {
   id: string;
+  /** Amplify Data record id (connected mode only). */
+  recordId?: string;
   kind: string;
   tone: ProposalTone;
   title: string;
   rationale: string;
   /** Confirmation copy shown once approved. */
   ok: string;
+  /** Machine-readable payload the approval executes (e.g. { roleId }). */
+  payload?: Record<string, string>;
 }
 
 export interface TermGroup {
@@ -107,6 +117,9 @@ export interface WatchEntry {
   name: string;
   /** ATS provider tag (Greenhouse / Lever / Ashby / Workday / RSS). */
   src: string;
+  /** Resolved board slug for the ATS adapters (captured at add-time from a
+   *  careers URL — ARCHITECTURE.md §2; defaults to a normalized name). */
+  slug?: string;
 }
 
 export interface SourceDef {
