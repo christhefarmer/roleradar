@@ -219,7 +219,7 @@ export type Action =
   | { type: 'HYDRATE'; snapshot: remote.AccountSnapshot }
   | { type: 'RUN_START'; sources: RunSource[] }
   | { type: 'RUN_TICK'; sources: RunSource[]; radarStage: number }
-  | { type: 'RUN_DONE'; runSummary: string; summary: SweepSummary; error?: boolean }
+  | { type: 'RUN_DONE'; runSummary: string; summary: SweepSummary; error?: boolean; sources?: RunSource[] }
   | { type: 'SWEEP_APPLIED'; outcome: remote.SweepOutcome }
   | { type: 'TOGGLE_EXPAND'; id: string }
   | { type: 'DISMISS_ROLE'; id: string }
@@ -346,7 +346,7 @@ function reducer(state: AppState, action: Action): AppState {
         radarStage: 4,
         runSummary: action.runSummary,
         summary: action.summary,
-        runSources: state.runSources.map((s) =>
+        runSources: (action.sources ?? state.runSources).map((s) =>
           s.kind === 'manual' ? { ...s, status: 'manual' } : { ...s, status: 'done' },
         ),
       };
@@ -769,7 +769,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const outcome = await remote.runSweepRemote(s, s.resumeText);
         rawDispatch({ type: 'SWEEP_APPLIED', outcome });
-        rawDispatch({ type: 'RUN_DONE', runSummary: outcome.runSummary, summary: outcome.summary });
+        const adapterNames: Record<string, string> = { greenhouse: 'Greenhouse', eluta: 'Eluta.ca RSS' };
+        const finalSources = sources.map((src) => {
+          const entry = outcome.perSource.find((p) => adapterNames[p.id] === src.name);
+          return entry ? { ...src, count: `${entry.count} role${entry.count === 1 ? '' : 's'}` } : src;
+        });
+        rawDispatch({
+          type: 'RUN_DONE',
+          runSummary: outcome.runSummary,
+          summary: outcome.summary,
+          sources: finalSources,
+        });
       } catch (e) {
         rawDispatch({
           type: 'RUN_DONE',
