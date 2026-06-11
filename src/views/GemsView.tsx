@@ -103,7 +103,7 @@ export function GemsView() {
 
             <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--rr-ink)' }}>{g.title}</div>
             <div style={{ fontFamily: MONO, fontSize: 11.5, color: '#8A8475', marginTop: 4 }}>
-              {g.company} · {g.location} · {g.source}
+              {[g.company, g.location, g.source].filter(Boolean).join(' · ')}
             </div>
 
             <div

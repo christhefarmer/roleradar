@@ -3,6 +3,7 @@
 
 import {
   eligibilityFromLocation,
+  extractSalary,
   type FetchConfig,
   type NormalizedRole,
   type RawPosting,
@@ -10,7 +11,7 @@ import {
 } from './types';
 
 const BOARD_URL = (slug: string) =>
-  `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(slug)}`;
+  `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(slug)}?includeCompensation=true`;
 
 interface AshbyJob {
   id: string;
@@ -23,6 +24,7 @@ interface AshbyJob {
   publishedAt?: string;
   descriptionPlain?: string;
   descriptionHtml?: string;
+  compensation?: { compensationTierSummary?: string };
 }
 
 function stripHtml(html: string): string {
@@ -51,14 +53,16 @@ export const ashby: SourceAdapter = {
           const locations = [job.location, ...(job.secondaryLocations ?? []).map((l) => l.location)]
             .filter(Boolean)
             .join(' / ');
+          const description = job.descriptionPlain ?? stripHtml(job.descriptionHtml ?? '');
           postings.push({
             sourceId: `ashby:${entry.slug}:${job.id}`,
             title: job.title,
             company: entry.company,
             location: locations,
             url: job.jobUrl ?? job.applyUrl ?? '',
-            description: job.descriptionPlain ?? stripHtml(job.descriptionHtml ?? ''),
+            description,
             postedAt: job.publishedAt,
+            salary: job.compensation?.compensationTierSummary ?? extractSalary(description),
           });
         }
       } catch {
@@ -77,6 +81,7 @@ export const ashby: SourceAdapter = {
       url: raw.url,
       rawDescription: raw.description,
       sourceName: 'Ashby',
+      salary: raw.salary,
       eligibility: eligibilityFromLocation(raw.location, 'Ashby location'),
     };
   },

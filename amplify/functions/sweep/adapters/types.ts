@@ -46,6 +46,8 @@ export interface RawPosting {
   url: string;
   description: string;
   postedAt?: string;
+  /** Posting-stated compensation, when the source exposes or mentions it. */
+  salary?: string;
 }
 
 /** The common normalized shape — pre-scoring. */
@@ -57,6 +59,7 @@ export interface NormalizedRole {
   url: string;
   rawDescription: string;
   sourceName: string;
+  salary?: string;
   eligibility: {
     state: 'ca' | 'us' | 'unknown';
     label: string;
@@ -71,6 +74,22 @@ export interface SourceAdapter {
   scope: AdapterScope;
   fetch(config: FetchConfig): Promise<RawPosting[]>;
   normalize(raw: RawPosting): NormalizedRole;
+}
+
+/** Best-effort salary extraction from posting text: annual figures/ranges
+ *  ($95,000 – $120,000 / $110k) and hourly rates ($45/hour). Guarded against
+ *  small-dollar noise; a heuristic hint like everything else. */
+export function extractSalary(text: string): string | undefined {
+  const annual =
+    /\$\s?(\d{1,3}(?:[, ]\d{3})+|\d{2,3}(?:\.\d+)?\s?[kK])(?:\s?(?:[-–—]|to)\s?\$?\s?(\d{1,3}(?:[, ]\d{3})+|\d{2,3}(?:\.\d+)?\s?[kK]))?/;
+  const hourly = /\$\s?\d{2,3}(?:\.\d{2})?\s?(?:\/|per\s|an\s)\s?(?:hour|hr)\b/i;
+  const toNum = (s: string) =>
+    /k/i.test(s) ? parseFloat(s) * 1000 : parseInt(s.replace(/[ ,]/g, ''), 10);
+  const m = text.match(annual);
+  if (m && toNum(m[1]) >= 30_000) return m[0].replace(/\s+/g, ' ').trim();
+  const h = text.match(hourly);
+  if (h) return h[0].replace(/\s+/g, ' ').trim();
+  return undefined;
 }
 
 /** Eligibility is a heuristic hint read from the location text — flagged,

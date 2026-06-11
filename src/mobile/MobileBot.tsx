@@ -107,7 +107,14 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
     ? topRole && {
         id: topRole.id,
         title: topRole.title,
-        meta: `${topRole.company} · ${topRole.location} · ${topRole.posted}${topRole.posted.includes('seen') ? '' : ' ago'}`,
+        meta: [
+          topRole.company,
+          topRole.location,
+          topRole.salary,
+          /^\d+d$/.test(topRole.posted) ? `${topRole.posted} ago` : topRole.posted,
+        ]
+          .filter(Boolean)
+          .join(' · '),
         score: topRole.score,
         reasons: topRole.chips.filter(([, tone]) => tone === 'good').slice(0, 2).map(([t]) => t),
       }
