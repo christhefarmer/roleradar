@@ -11,6 +11,7 @@ const SRC_TONE: Record<string, [bg: string, color: string, bd: string]> = {
   Greenhouse: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
   Lever: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
   Ashby: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
+  Workable: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
   Workday: ['#F4ECDA', '#8A5E14', '#E3D2A8'],
   RSS: ['#EFEBE1', '#6E685D', '#E0DBD0'],
 };

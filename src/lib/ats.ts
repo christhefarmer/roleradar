@@ -43,6 +43,10 @@ export function resolveCareersUrl(input: string): WatchEntry | null {
   if (/(^|\.)ashbyhq\.com$/.test(host) && segments[0]) {
     return { name: titleCase(segments[0]), src: 'Ashby', slug: segments[0] };
   }
+  // apply.workable.com/{slug}
+  if (/(^|\.)workable\.com$/.test(host) && segments[0] && segments[0] !== 'api') {
+    return { name: titleCase(segments[0]), src: 'Workable', slug: segments[0] };
+  }
   // {tenant}.wd{n}.myworkdayjobs.com/{lang?}/{site}
   const wd = host.match(/^([^.]+)\.(wd\d+)\.myworkdayjobs\.com$/);
   if (wd) {
