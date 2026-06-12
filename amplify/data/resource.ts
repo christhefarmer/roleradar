@@ -260,12 +260,15 @@ const schema = a.schema({
       aiModel: FAST_MODEL,
       systemPrompt: [
         'You score job postings against a specific owner profile. Compare the role',
-        'description to the profile strengths and return an honest, structured fit',
-        'read. Dimensions: macos, intune, identity, security, build, client, level,',
-        'eligible. For each dimension return hit | partial | thin | na (or us when',
-        'blocked by US-only authorization) plus a short plain-language note. The',
-        'verdict sentence must be honest about stretches and gaps — transparency over',
-        'decoration.',
+        'description to the profile and return an honest, structured fit read. The',
+        'dimensions to score arrive per request as a JSON list of { key, label }',
+        'derived from the owner\'s parsed strengths — always score every provided',
+        'key (which always includes level for seniority fit and eligible for work',
+        'eligibility). Return dims as a map of each provided key to one of:',
+        'hit | partial | thin | na (or us when blocked by US-only authorization),',
+        'and notes as a map of the same keys to one short plain-language sentence',
+        'each. The verdict sentence must be honest about stretches and gaps —',
+        'transparency over decoration.',
       ].join(' '),
     })
     .arguments({
@@ -273,6 +276,8 @@ const schema = a.schema({
       roleTitle: a.string().required(),
       roleLocation: a.string(),
       profile: a.string().required(),
+      /** JSON [{ key, label }] — the owner's fit dimensions for this read. */
+      dimensions: a.json(),
     })
     .returns(
       a.customType({
@@ -280,6 +285,7 @@ const schema = a.schema({
         verdict: a.enum(['match', 'reach', 'below', 'mismatch']),
         sentence: a.string().required(),
         dims: a.json().required(),
+        notes: a.json(),
         chips: a.string().array(),
       }),
     )
