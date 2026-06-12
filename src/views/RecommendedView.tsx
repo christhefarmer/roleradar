@@ -110,7 +110,7 @@ export function RecommendedView() {
         >
           <div style={{ fontSize: 24, color: '#C4BCAC', marginBottom: 10 }}>◎</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#3A352D' }}>
-            {state.summary.when === 'never' ? 'No roles yet' : 'Nothing matches these filters'}
+            {state.roles.length === 0 ? 'No roles yet' : 'Nothing matches these filters'}
           </div>
           <p
             style={{
@@ -121,27 +121,47 @@ export function RecommendedView() {
               lineHeight: 1.55,
             }}
           >
-            {state.summary.when === 'never'
-              ? 'Paste your résumé in Profile, add search terms and watchlist companies in Search, then send your scouts out.'
+            {state.roles.length === 0
+              ? 'Go to Range to set the range and scope for your scouts — search terms, watchlist companies and sources — then send them out.'
               : 'Loosen a filter, or run another sweep to bring in fresh postings.'}
           </p>
-          <button
-            onClick={startRun}
-            className="rr-btn-primary"
-            style={{
-              border: 'none',
-              cursor: 'pointer',
-              padding: '10px 18px',
-              borderRadius: 8,
-              color: '#fff',
-              fontFamily: MONO,
-              fontSize: 11.5,
-              fontWeight: 600,
-              letterSpacing: '0.05em',
-            }}
-          >
-            ▸ SEND SCOUTS
-          </button>
+          {state.roles.length === 0 ? (
+            <button
+              onClick={() => dispatch({ type: 'SET_VIEW', view: 'search' })}
+              className="rr-btn-primary"
+              style={{
+                border: 'none',
+                cursor: 'pointer',
+                padding: '10px 18px',
+                borderRadius: 8,
+                color: '#fff',
+                fontFamily: MONO,
+                fontSize: 11.5,
+                fontWeight: 600,
+                letterSpacing: '0.05em',
+              }}
+            >
+              ≋ SET YOUR RANGE
+            </button>
+          ) : (
+            <button
+              onClick={startRun}
+              className="rr-btn-primary"
+              style={{
+                border: 'none',
+                cursor: 'pointer',
+                padding: '10px 18px',
+                borderRadius: 8,
+                color: '#fff',
+                fontFamily: MONO,
+                fontSize: 11.5,
+                fontWeight: 600,
+                letterSpacing: '0.05em',
+              }}
+            >
+              ▸ SEND SCOUTS
+            </button>
+          )}
         </div>
       )}
     </>

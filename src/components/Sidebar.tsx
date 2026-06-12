@@ -8,10 +8,10 @@ import { HatGlasses } from '../ui/HatGlasses';
 import { MONO } from '../ui/primitives';
 
 const NAV: { key: ViewKey; label: string; glyph: string }[] = [
+  { key: 'recommend', label: 'ROLES', glyph: '◆' },
+  { key: 'gems', label: 'GEMS', glyph: '◇' },
+  { key: 'search', label: 'RANGE', glyph: '≋' },
   { key: 'radar', label: 'SCOUTS', glyph: '◎' },
-  { key: 'gems', label: 'HIDDEN GEMS', glyph: '◇' },
-  { key: 'recommend', label: 'RECOMMENDED', glyph: '◆' },
-  { key: 'search', label: 'SEARCH', glyph: '≋' },
   { key: 'pipeline', label: 'PIPELINE', glyph: '▤' },
 ];
 
@@ -28,6 +28,9 @@ export function Sidebar() {
   const gemOpen = state.gems.filter((g) => !state.gemDecisions[g.id]).length;
   const queue = state.proposals.filter((p) => !state.proposalState[p.id]).length;
   const badges: Partial<Record<ViewKey, number>> = { radar: queue, gems: gemOpen };
+  // Gems only earns a nav slot when there is something to triage (kept
+  // visible while you're on it so the view never orphans).
+  const navItems = NAV.filter((n) => n.key !== 'gems' || gemOpen > 0 || state.view === 'gems');
 
   return (
     <aside
@@ -55,7 +58,7 @@ export function Sidebar() {
       </div>
 
       <nav data-rr="nav" style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
-        {NAV.map((n) => {
+        {navItems.map((n) => {
           const active = state.view === n.key;
           const badge = badges[n.key];
           return (

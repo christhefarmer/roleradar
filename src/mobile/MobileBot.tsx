@@ -20,10 +20,10 @@ import { proposalTone } from '../ui/tones';
 type Phase = 'splash' | 'sweep' | 'brief';
 
 const COCKPIT_LINKS: { glyph: string; label: string; view: ViewKey }[] = [
-  { glyph: '◆', label: 'Recommended', view: 'recommend' },
-  { glyph: '◇', label: 'Hidden gems', view: 'gems' },
+  { glyph: '◆', label: 'Roles', view: 'recommend' },
+  { glyph: '◇', label: 'Gems', view: 'gems' },
+  { glyph: '≋', label: 'Range', view: 'search' },
   { glyph: '▤', label: 'Pipeline', view: 'pipeline' },
-  { glyph: '≋', label: 'Search & watchlist', view: 'search' },
   { glyph: '◈', label: 'Profile', view: 'profile' },
 ];
 
