@@ -745,15 +745,29 @@ export async function parseProfileRemote(
     const res = await client().generations.parseProfile({ resumeText, linkedinText });
     const data = res.data;
     if (!data) throw new Error(res.errors?.[0]?.message ?? 'empty parse result');
+    // Strength keys become the fit dimension keys — slugify and dedupe so the
+    // AI's naming can't produce colliding or unusable keys.
+    const slug = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 32) || 'strength';
+    const usedKeys = new Set<string>();
     const strengths = parseJsonField<Strength[]>(data.strengths, []).map(
-      (s): Strength => ({
-        key: s.key ?? s.label,
-        label: s.label,
-        conf: s.conf === 'RARE' || s.conf === 'MED' ? s.conf : 'HIGH',
-        weight: Math.min(3, Math.max(1, Number(s.weight) || 2)),
-        bar: Math.min(100, Math.max(10, Number(s.bar) || 60)),
-        ev: s.ev ?? '',
-      }),
+      (s): Strength => {
+        let key = slug(s.key ?? s.label);
+        while (usedKeys.has(key)) key = `${key}_2`;
+        usedKeys.add(key);
+        return {
+          key,
+          label: s.label,
+          conf: s.conf === 'RARE' || s.conf === 'MED' ? s.conf : 'HIGH',
+          weight: Math.min(3, Math.max(1, Number(s.weight) || 2)),
+          bar: Math.min(100, Math.max(10, Number(s.bar) || 60)),
+          ev: s.ev ?? '',
+        };
+      },
     );
     return {
       strengths,
