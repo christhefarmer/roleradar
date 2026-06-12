@@ -173,6 +173,23 @@ export function GemsView() {
                 <span style={{ fontSize: 10, color: '#B8B0A0' }}>/100</span>
               </span>
               <span style={{ flex: 1 }} />
+              {g.url && (
+                <button
+                  onClick={() => window.open(g.url, '_blank', 'noopener')}
+                  style={{
+                    border: '1px solid #D8D2C5',
+                    background: 'var(--rr-surface)',
+                    color: '#3A352D',
+                    cursor: 'pointer',
+                    padding: '8px 15px',
+                    borderRadius: 7,
+                    fontFamily: MONO,
+                    fontSize: 11,
+                  }}
+                >
+                  Open posting ↗
+                </button>
+              )}
               {d ? (
                 <span
                   style={{
