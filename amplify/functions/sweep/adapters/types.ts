@@ -8,6 +8,8 @@ export type AdapterId =
   | 'ashby'
   | 'workable'
   | 'workday'
+  | 'smartrecruiters'
+  | 'bamboohr'
   | 'eluta'
   | 'wwr'
   | 'remotive'

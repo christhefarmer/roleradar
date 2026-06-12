@@ -47,6 +47,15 @@ export function resolveCareersUrl(input: string): WatchEntry | null {
   if (/(^|\.)workable\.com$/.test(host) && segments[0] && segments[0] !== 'api') {
     return { name: titleCase(segments[0]), src: 'Workable', slug: segments[0] };
   }
+  // careers.smartrecruiters.com/{Company} · jobs.smartrecruiters.com/{Company}/…
+  if (/(^|\.)smartrecruiters\.com$/.test(host) && segments[0] && segments[0] !== 'api') {
+    return { name: titleCase(segments[0]), src: 'SmartRecruiters', slug: segments[0] };
+  }
+  // {company}.bamboohr.com/careers
+  const bamboo = host.match(/^([^.]+)\.bamboohr\.com$/);
+  if (bamboo && bamboo[1] !== 'www') {
+    return { name: titleCase(bamboo[1]), src: 'BambooHR', slug: bamboo[1] };
+  }
   // {tenant}.wd{n}.myworkdayjobs.com/{lang?}/{site}
   const wd = host.match(/^([^.]+)\.(wd\d+)\.myworkdayjobs\.com$/);
   if (wd) {
