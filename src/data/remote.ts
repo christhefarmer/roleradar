@@ -228,6 +228,7 @@ function rowToUiRole(row: RoleRow): Role {
     source: row.sourceName ?? '',
     url: row.url ?? undefined,
     salary: row.salary ?? undefined,
+    discoveredAt: row.firstSeen ?? undefined,
     score: fit?.score ?? 0,
     verdict,
     dims: { ...EMPTY_DIMS, ...(fit?.dims ?? {}) },
@@ -259,6 +260,7 @@ function rowToUiGem(row: RoleRow): Gem | null {
   return {
     id: row.id,
     recordId: row.id,
+    url: row.url ?? undefined,
     title: row.title,
     company: row.company,
     location: row.location ?? '',

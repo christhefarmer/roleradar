@@ -48,6 +48,8 @@ export interface Role {
   url?: string;
   /** Posting-stated compensation, when the source exposes or mentions it. */
   salary?: string;
+  /** ISO timestamp of when a sweep first discovered this role (connected mode). */
+  discoveredAt?: string;
   title: string;
   company: string;
   location: string;
@@ -74,6 +76,8 @@ export interface Gem {
   id: string;
   /** Amplify Data record id (connected mode only). */
   recordId?: string;
+  /** Original posting URL (connected mode). */
+  url?: string;
   title: string;
   company: string;
   location: string;

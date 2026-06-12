@@ -6,7 +6,7 @@ import type { CSSProperties } from 'react';
 import { DIMS } from '../data/seed';
 import type { Role } from '../domain/types';
 import { useStore } from '../state/store';
-import { EligBadge, MONO } from '../ui/primitives';
+import { EligBadge, formatDiscovered, MONO } from '../ui/primitives';
 import { VERDICTS, chipTone, defNote, eligVm, fillColor, fillFor, meterColor } from '../ui/tones';
 
 function filterToggleStyle(on: boolean): CSSProperties {
@@ -211,7 +211,15 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
               r.location,
               r.salary,
               r.source,
-              /^\d+d$/.test(r.posted) ? `${r.posted} ago` : r.posted,
+              // "seen Nd" keeps the repost framing; otherwise show the exact
+              // discovery timestamp when we have one.
+              r.posted.startsWith('seen')
+                ? r.posted
+                : r.discoveredAt
+                  ? `found ${formatDiscovered(r.discoveredAt)}`
+                  : /^\d+d$/.test(r.posted)
+                    ? `${r.posted} ago`
+                    : r.posted,
             ]
               .filter(Boolean)
               .join(' · ')}

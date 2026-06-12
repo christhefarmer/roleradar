@@ -10,6 +10,7 @@ interface PipeCard {
   id: string;
   title: string;
   company: string;
+  url?: string;
   elig: Eligibility;
 }
 
@@ -18,7 +19,7 @@ export function PipelineView() {
 
   const byId = new Map<string, PipeCard>();
   for (const r of [...state.roles, ...state.gems]) {
-    byId.set(r.id, { id: r.id, title: r.title, company: r.company, elig: r.elig });
+    byId.set(r.id, { id: r.id, title: r.title, company: r.company, url: r.url, elig: r.elig });
   }
 
   return (
@@ -78,6 +79,31 @@ export function PipelineView() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 9 }}>
                     <EligBadge elig={card.elig} fontSize={9.5} />
                     <span style={{ flex: 1 }} />
+                    {card.url && (
+                      <a
+                        href={card.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open posting"
+                        style={{
+                          border: '1px solid #E2DDD1',
+                          background: '#F4F2EC',
+                          color: 'var(--rr-primary-strong)',
+                          width: 24,
+                          height: 24,
+                          borderRadius: 5,
+                          fontFamily: MONO,
+                          fontSize: 12,
+                          lineHeight: 1,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        ↗
+                      </a>
+                    )}
                     <button
                       onClick={() => dispatch({ type: 'MOVE_STAGE', id: card.id, dir: -1 })}
                       title="Move up"
