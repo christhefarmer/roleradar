@@ -232,6 +232,8 @@ export type Action =
   | { type: 'REMOVE_FROM_PIPE'; id: string }
   | { type: 'MOVE_STAGE'; id: string; dir: 1 | -1 }
   | { type: 'ADD_CO'; entry: WatchEntry }
+  | { type: 'UPDATE_CO'; entry: WatchEntry }
+  | { type: 'RANGE_POPULATED'; termGroups: TermGroup[]; companies: string[] }
   | { type: 'TOGGLE_PAUSE_CO'; name: string }
   | { type: 'REMOVE_CO'; name: string }
   | { type: 'MUTE_CO'; name: string }
@@ -402,6 +404,50 @@ function reducer(state: AppState, action: Action): AppState {
         excluded: state.excluded.filter((n) => n !== action.entry.name),
       };
     }
+    case 'UPDATE_CO':
+      // Board resolution upgrading a watch entry's provider + slug.
+      return {
+        ...state,
+        watchlist: state.watchlist.map((w) =>
+          w.name.toLowerCase() === action.entry.name.toLowerCase() ? { ...w, ...action.entry } : w,
+        ),
+      };
+    case 'RANGE_POPULATED': {
+      // Parse → Range pipeline. Non-destructive merge: a fresh range (no
+      // terms anywhere) adopts the AI groups wholesale; an in-use range keeps
+      // everything and gains new groups/terms, deduped case-insensitively.
+      const hasTerms = state.termGroups.some((g) => g.terms.length > 0);
+      let termGroups: TermGroup[];
+      if (!hasTerms && action.termGroups.length) {
+        termGroups = action.termGroups;
+      } else {
+        termGroups = [...state.termGroups];
+        for (const ai of action.termGroups) {
+          const existing = termGroups.findIndex(
+            (g) => g.name.toLowerCase() === ai.name.toLowerCase(),
+          );
+          if (existing === -1) {
+            termGroups.push(ai);
+          } else {
+            const have = new Set(termGroups[existing].terms.map((t) => t.toLowerCase()));
+            termGroups[existing] = {
+              ...termGroups[existing],
+              terms: [
+                ...termGroups[existing].terms,
+                ...ai.terms.filter((t) => !have.has(t.toLowerCase())),
+              ],
+            };
+          }
+        }
+      }
+      const watchNames = new Set(state.watchlist.map((w) => w.name.toLowerCase()));
+      const excludedSet = new Set(state.excluded.map((n) => n.toLowerCase()));
+      const additions = action.companies
+        .filter((n) => !watchNames.has(n.toLowerCase()) && !excludedSet.has(n.toLowerCase()))
+        // Aggregate-feed tag until the board resolver upgrades the provider.
+        .map((name): WatchEntry => ({ name, src: 'RSS' }));
+      return { ...state, termGroups, watchlist: [...state.watchlist, ...additions] };
+    }
     case 'TOGGLE_PAUSE_CO':
       return {
         ...state,
@@ -466,7 +512,11 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, parsed: true };
     case 'SET_PARSING':
       return { ...state, parsing: action.parsing };
-    case 'PROFILE_PARSED':
+    case 'PROFILE_PARSED': {
+      // Connected mode auto-watches the suggested companies (the parse →
+      // Range pipeline), so their chips render as already added.
+      const profileCosAdded = { ...state.profileCosAdded };
+      if (state.connected) for (const c of action.outcome.sugCos) profileCosAdded[c.name] = true;
       return {
         ...state,
         parsed: true,
@@ -475,7 +525,9 @@ function reducer(state: AppState, action: Action): AppState {
         sugTerms: action.outcome.sugTerms,
         sugCos: action.outcome.sugCos,
         facts: action.outcome.facts ?? state.facts,
+        profileCosAdded,
       };
+    }
     case 'CYCLE_WEIGHT': {
       const cur = state.weights[action.key] ?? action.base;
       return { ...state, weights: { ...state.weights, [action.key]: (cur % 3) + 1 } };
@@ -589,6 +641,8 @@ const SEARCH_SYNC = new Set<Action['type']>([
   'ADD_TERM',
   'REMOVE_TERM',
   'ADD_CO',
+  'UPDATE_CO',
+  'RANGE_POPULATED',
   'TOGGLE_PAUSE_CO',
   'REMOVE_CO',
   'MUTE_CO',
@@ -911,6 +965,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const outcome = await remote.parseProfileRemote(s.resumeText, s.linkedinText);
           rawDispatch({ type: 'PROFILE_PARSED', outcome });
           remote.saveProfile({ ...stateRef.current, ...outcome }).catch(() => undefined);
+
+          // Parse → Range pipeline: populate the scouts' range with the AI
+          // term groups and auto-watch suggested companies (non-destructive
+          // merge; persisted via the SearchConfig sync).
+          const before = new Set(stateRef.current.watchlist.map((w) => w.name.toLowerCase()));
+          dispatch({
+            type: 'RANGE_POPULATED',
+            termGroups: outcome.termGroups,
+            companies: outcome.sugCos.map((c) => c.name),
+          });
+          // Resolve each newly watched company's real ATS board in the
+          // background; the entry's provider tag upgrades as results land.
+          for (const c of outcome.sugCos) {
+            if (before.has(c.name.toLowerCase())) continue;
+            remote
+              .resolveCompanyRemote(c.name)
+              .then((entry) => {
+                if (entry) dispatch({ type: 'UPDATE_CO', entry });
+              })
+              .catch(() => undefined);
+          }
         } catch (e) {
           console.warn('parse', e);
           rawDispatch({ type: 'SET_PARSING', parsing: false });

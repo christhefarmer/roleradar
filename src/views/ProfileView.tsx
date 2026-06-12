@@ -90,6 +90,7 @@ export function ProfileView() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 9,
+                flexWrap: 'wrap',
                 background: 'var(--rr-primary-tint)',
                 border: '1px solid #C5DDCB',
                 borderRadius: 9,
@@ -100,10 +101,29 @@ export function ProfileView() {
               <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 600, color: '#0F6B3B', letterSpacing: '0.04em' }}>
                 ✓ PARSED
               </span>
-              <span style={{ fontSize: 12.5, color: '#3A6B49' }}>
-                {strengths.length} strengths · {sugTerms.length} candidate terms · {sugCos.length}{' '}
-                watchlist suggestions extracted.
+              <span style={{ fontSize: 12.5, color: '#3A6B49', flex: 1, minWidth: 220 }}>
+                {strengths.length} strengths ·{' '}
+                {state.termGroups.reduce((n, g) => n + g.terms.length, 0)} range terms in{' '}
+                {state.termGroups.filter((g) => g.terms.length > 0).length} groups ·{' '}
+                {state.watchlist.length} companies watched.
               </span>
+              <button
+                onClick={() => dispatch({ type: 'SET_VIEW', view: 'search' })}
+                style={{
+                  border: '1px solid #C5DDCB',
+                  background: 'var(--rr-surface)',
+                  color: '#0F6B3B',
+                  cursor: 'pointer',
+                  padding: '5px 12px',
+                  borderRadius: 7,
+                  fontFamily: MONO,
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  flex: '0 0 auto',
+                }}
+              >
+                Review Range →
+              </button>
             </div>
 
             <SectionLabel style={{ letterSpacing: '0.06em', marginBottom: 4 }}>YOUR STRENGTHS</SectionLabel>

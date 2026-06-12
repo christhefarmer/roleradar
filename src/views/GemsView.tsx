@@ -1,24 +1,16 @@
 // Hidden Gems — gold-keyed cards, each leading with *why it surfaced*
 // (content match or company signal) and Confirm → promote / Dismiss.
 
+import { gemsForView, hiddenPendingGemCount } from '../state/selectors';
 import { useStore } from '../state/store';
 import { EligBadge, MONO } from '../ui/primitives';
 
 export function GemsView() {
   const { state, dispatch } = useStore();
-  // A role-level dismissal hides its gem card too (in connected mode the gem
-  // shares the role's record id), the Canada filter applies here as well, and
-  // a confirmed gem leaves the queue — it lives in Recommended now.
-  const gems = state.gems.filter(
-    (g) =>
-      !state.excluded.includes(g.company) &&
-      !state.dismissed[g.id] &&
-      state.gemDecisions[g.id] !== 'confirmed' &&
-      (!state.canadaOnly ||
-        g.elig.state === 'ca' ||
-        g.elig.state === 'remote' ||
-        state.overrides[g.id]),
-  );
+  // Shared selector with the sidebar badge: role-dismissals hide the gem,
+  // promoted gems live in Roles now, and the Canada filter applies.
+  const gems = gemsForView(state);
+  const hiddenByFilters = hiddenPendingGemCount(state);
 
   return (
     <>
@@ -59,10 +51,23 @@ export function GemsView() {
           }}
         >
           <div style={{ fontSize: 24, color: '#D8C58F', marginBottom: 10 }}>◆</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#5C4413' }}>No gems yet</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#5C4413' }}>
+            {hiddenByFilters > 0 ? 'No gems match your filters' : 'No gems yet'}
+          </div>
           <p style={{ fontSize: 12.5, color: '#9A8755', maxWidth: 420, margin: '8px auto 0', lineHeight: 1.55 }}>
-            Gems surface when a sweep finds a role whose title missed your terms but whose content
-            matches your stack. Run sweeps regularly — these are the ones worth the patience.
+            {hiddenByFilters > 0 ? (
+              <>
+                {hiddenByFilters} pending gem{hiddenByFilters > 1 ? 's are' : ' is'} hidden — most
+                likely by the <b>Canada-eligible only</b> filter (or an excluded company). Toggle the
+                filter off in Roles to review {hiddenByFilters > 1 ? 'them' : 'it'}.
+              </>
+            ) : (
+              <>
+                Gems surface when a sweep finds a role whose title missed your terms but whose
+                content matches your stack. Run sweeps regularly — these are the ones worth the
+                patience.
+              </>
+            )}
           </p>
         </div>
       )}
@@ -168,6 +173,23 @@ export function GemsView() {
                 <span style={{ fontSize: 10, color: '#B8B0A0' }}>/100</span>
               </span>
               <span style={{ flex: 1 }} />
+              {g.url && (
+                <button
+                  onClick={() => window.open(g.url, '_blank', 'noopener')}
+                  style={{
+                    border: '1px solid #D8D2C5',
+                    background: 'var(--rr-surface)',
+                    color: '#3A352D',
+                    cursor: 'pointer',
+                    padding: '8px 15px',
+                    borderRadius: 7,
+                    fontFamily: MONO,
+                    fontSize: 11,
+                  }}
+                >
+                  Open posting ↗
+                </button>
+              )}
               {d ? (
                 <span
                   style={{

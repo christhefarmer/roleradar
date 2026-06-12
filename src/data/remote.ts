@@ -666,9 +666,41 @@ export async function saveProposalStatus(
 
 export interface ParseOutcome {
   strengths: Strength[];
+  /** AI-proposed search-term groups, derived from this résumé — the parse →
+   *  Range pipeline that tells the scouts what to look for. */
+  termGroups: TermGroup[];
   sugTerms: SuggestedTerm[];
   sugCos: SuggestedCompany[];
   facts: ProfileFacts | null;
+}
+
+/** Clamp AI-proposed term groups into shape: ≤5 groups, ≤8 terms each,
+ *  weights 1-3, no empties, terms deduped case-insensitively. */
+function sanitizeTermGroups(raw: unknown): TermGroup[] {
+  const groups = parseJsonField<{ name?: string; weight?: number; terms?: unknown[] }[]>(raw, []);
+  const out: TermGroup[] = [];
+  for (const g of Array.isArray(groups) ? groups : []) {
+    if (!g?.name) continue;
+    const seen = new Set<string>();
+    const terms = (g.terms ?? [])
+      .filter((t): t is string => typeof t === 'string' && !!t.trim())
+      .map((t) => t.trim())
+      .filter((t) => {
+        const k = t.toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })
+      .slice(0, 8);
+    if (!terms.length) continue;
+    out.push({
+      name: String(g.name).slice(0, 40),
+      weight: Math.min(3, Math.max(1, Number(g.weight) || 2)),
+      terms,
+    });
+    if (out.length === 5) break;
+  }
+  return out;
 }
 
 export async function parseProfileRemote(
@@ -691,6 +723,7 @@ export async function parseProfileRemote(
     );
     return {
       strengths,
+      termGroups: sanitizeTermGroups(data.termGroups),
       sugTerms: (data.suggestedTerms ?? [])
         .filter((t): t is string => !!t)
         .map((label) => ({ label, added: false })),
@@ -716,6 +749,7 @@ function heuristicParse(resumeText: string): ParseOutcome {
   ];
   const strengths: Strength[] = [];
   const sugTerms: SuggestedTerm[] = [];
+  const termGroups: TermGroup[] = [];
   for (const p of probes) {
     const hits = p.words.filter((w) => text.includes(w));
     if (!hits.length) continue;
@@ -728,10 +762,12 @@ function heuristicParse(resumeText: string): ParseOutcome {
       ev: `Keyword evidence: ${hits.join(', ')} (heuristic parse — AI parse unavailable).`,
     });
     sugTerms.push(...hits.map((label) => ({ label, added: false })));
+    termGroups.push({ name: p.label, weight: hits.length >= 3 ? 3 : 2, terms: hits });
   }
   const canada = /canada|canadian/.test(text);
   return {
     strengths,
+    termGroups: termGroups.slice(0, 5),
     sugTerms: sugTerms.slice(0, 8),
     sugCos: [],
     facts: canada ? { canadaEligible: true } : null,
