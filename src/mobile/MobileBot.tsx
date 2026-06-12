@@ -101,6 +101,7 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
   const topRole = connected
     ? [...state.roles]
         .filter((r) => !state.dismissed[r.id] && !state.excluded.includes(r.company) && !r.down)
+        .filter((r) => r.elig.state === 'ca' || r.elig.state === 'remote' || state.overrides[r.id])
         .sort((a, b) => b.score - a.score)[0]
     : undefined;
   const featured = connected

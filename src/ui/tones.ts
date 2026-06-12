@@ -52,10 +52,14 @@ export interface EligVm extends Eligibility {
   bd: string;
 }
 
-/** Eligibility badge follows the signal trio: green CA / rust US-only / gold hybrid. */
+/** Eligibility badge follows the signal trio: green confirmed-CA / rust
+ *  blocked (US-only or elsewhere international) / gold needs-a-look
+ *  (regionless remote, hybrid, unclassified). */
 export function eligVm(e: Eligibility): EligVm {
-  if (e.state === 'us') return { ...e, color: '#B0492B', bg: '#F3E3DB', bd: '#E0C3B5' };
-  if (e.label.indexOf('HYBRID') >= 0) return { ...e, color: '#8A5E14', bg: '#F4ECDA', bd: '#E3D2A8' };
+  if (e.state === 'us' || e.state === 'other')
+    return { ...e, color: '#B0492B', bg: '#F3E3DB', bd: '#E0C3B5' };
+  if (e.state === 'remote' || e.state === 'unknown' || e.label.indexOf('HYBRID') >= 0)
+    return { ...e, color: '#8A5E14', bg: '#F4ECDA', bd: '#E3D2A8' };
   return { ...e, color: '#0F6B3B', bg: '#E7F1E8', bd: '#C5DDCB' };
 }
 

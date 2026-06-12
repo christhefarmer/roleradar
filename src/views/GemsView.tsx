@@ -7,9 +7,15 @@ import { EligBadge, MONO } from '../ui/primitives';
 export function GemsView() {
   const { state, dispatch } = useStore();
   // A role-level dismissal hides its gem card too (in connected mode the gem
-  // shares the role's record id).
+  // shares the role's record id), and the Canada filter applies here as well.
   const gems = state.gems.filter(
-    (g) => !state.excluded.includes(g.company) && !state.dismissed[g.id],
+    (g) =>
+      !state.excluded.includes(g.company) &&
+      !state.dismissed[g.id] &&
+      (!state.canadaOnly ||
+        g.elig.state === 'ca' ||
+        g.elig.state === 'remote' ||
+        state.overrides[g.id]),
   );
 
   return (

@@ -20,7 +20,9 @@ export type DimState = 'hit' | 'partial' | 'thin' | 'na' | 'us';
 
 export type VerdictKey = 'match' | 'reach' | 'below' | 'mismatch';
 
-export type EligState = 'ca' | 'us';
+/** ca = Canada-confirmed · us = US-only · other = elsewhere international ·
+ *  remote = remote with no stated region · unknown = could not classify. */
+export type EligState = 'ca' | 'us' | 'other' | 'remote' | 'unknown';
 
 /** Eligibility is a heuristic hint — always carried with provenance. */
 export interface Eligibility {
