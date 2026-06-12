@@ -7,6 +7,7 @@
 // explicit human Approve — never directly from the model.
 
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
+import { aiInvoke } from '../functions/ai-invoke/resource';
 import { resolveBoard } from '../functions/resolve-board/resource';
 import { sweep } from '../functions/sweep/resource';
 
@@ -20,7 +21,6 @@ import { sweep } from '../functions/sweep/resource';
 //     --model-id global.anthropic.claude-haiku-4-5-20251001-v1:0 \
 //     --messages '[{"role":"user","content":[{"text":"ping"}]}]'
 const CHAT_MODEL = a.ai.model('Claude Haiku 4.5');
-const FAST_MODEL = a.ai.model('Claude Haiku 4.5');
 
 const schema = a.schema({
   // ----- per-account data ---------------------------------------------------
@@ -219,90 +219,19 @@ const schema = a.schema({
     })
     .authorization((allow) => allow.owner()),
 
-  // Generation route — résumé parse. Extracts strengths (mapped to the fit
-  // dimensions), suggested search terms, and watchlist candidates. Heuristic
-  // hints the owner confirms or edits — never overrides their judgment.
-  parseProfile: a
-    .generation({
-      aiModel: FAST_MODEL,
-      systemPrompt: [
-        'You parse a résumé (and optional LinkedIn text) for a job-hunt scout and',
-        'produce the scout\'s entire search range. Extract:',
-        '(1) strengths — return 6 to 8, never fewer than 6 unless the text is under',
-        'a paragraph. Each: a short snake_case key derived from the strength itself',
-        '(e.g. character_art, shader_dev, okta_sso — NOT from any fixed list), a',
-        'short label, confidence HIGH | MED | RARE (HIGH = strong direct evidence,',
-        'MED = thinner or adjacent evidence, RARE = an unusual edge worth',
-        'cross-listing), a weight 1-3, a bar 0-100, and a short evidence quote',
-        'lifted from the text. Be rigorous: mine every angle — tools and hard',
-        'skills, domains, shipped projects or portfolio work, education and',
-        'certifications, collaboration and communication, trajectory. For sparse or',
-        'junior résumés, still reach 6 by drawing on that wider evidence and grade',
-        'it MED honestly; ground every strength in the text, never invent;',
-        '(2) termGroups — exactly three priority tiers: { name: High, weight: 3 },',
-        '{ name: Med, weight: 2 }, { name: Low, weight: 1 }, each with',
-        '{ terms: string[] } of 3-8 short queries a job board understands — job',
-        'titles, technologies, certifications. High = the person\'s core lane,',
-        'Med = strong adjacent, Low = stretch or peripheral;',
-        '(3) suggestedTerms — extra terms worth considering beyond the groups;',
-        '(4) suggestedCompanies — [{ name, reason }] employers worth watching,',
-        'inferred from the text (vendors used, industries, named employers\' peers);',
-        '(5) facts — { seniority, location, canadaEligible: boolean }.',
-        'Be honest and grounded in the text; do not invent experience.',
-      ].join(' '),
-    })
+  // One-shot AI tasks (résumé parse, fit scoring) via the direct Bedrock
+  // Lambda — the function owns its model id and IAM policy (backend.ts),
+  // sidestepping the AI Kit generation routes' generated-policy issues.
+  // payload/result shapes are documented in functions/ai-invoke/handler.ts.
+  aiInvoke: a
+    .mutation()
     .arguments({
-      resumeText: a.string().required(),
-      linkedinText: a.string(),
+      task: a.string().required(),
+      payload: a.json().required(),
     })
-    .returns(
-      a.customType({
-        strengths: a.json().required(),
-        termGroups: a.json(),
-        suggestedTerms: a.string().array(),
-        suggestedCompanies: a.json(),
-        facts: a.json(),
-      }),
-    )
-    .authorization((allow) => allow.authenticated()),
-
-  // Generation route — structured fit explanation per role. One-shot, typed
-  // output; powers the signature fit-with-reasoning card.
-  generateFit: a
-    .generation({
-      aiModel: FAST_MODEL,
-      systemPrompt: [
-        'You score job postings against a specific owner profile. Compare the role',
-        'description to the profile and return an honest, structured fit read. The',
-        'dimensions to score arrive per request as a JSON list of { key, label }',
-        'derived from the owner\'s parsed strengths — always score every provided',
-        'key (which always includes level for seniority fit and eligible for work',
-        'eligibility). Return dims as a map of each provided key to one of:',
-        'hit | partial | thin | na (or us when blocked by US-only authorization),',
-        'and notes as a map of the same keys to one short plain-language sentence',
-        'each. The verdict sentence must be honest about stretches and gaps —',
-        'transparency over decoration.',
-      ].join(' '),
-    })
-    .arguments({
-      roleDescription: a.string().required(),
-      roleTitle: a.string().required(),
-      roleLocation: a.string(),
-      profile: a.string().required(),
-      /** JSON [{ key, label }] — the owner's fit dimensions for this read. */
-      dimensions: a.json(),
-    })
-    .returns(
-      a.customType({
-        score: a.integer().required(),
-        verdict: a.enum(['match', 'reach', 'below', 'mismatch']),
-        sentence: a.string().required(),
-        dims: a.json().required(),
-        notes: a.json(),
-        chips: a.string().array(),
-      }),
-    )
-    .authorization((allow) => allow.authenticated()),
+    .returns(a.json())
+    .handler(a.handler.function(aiInvoke))
+    .authorization((allow) => [allow.authenticated()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
