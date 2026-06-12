@@ -78,6 +78,8 @@ export interface Gem {
   recordId?: string;
   /** Original posting URL (connected mode). */
   url?: string;
+  /** Days since a sweep first discovered it (connected mode; drives sorting). */
+  days?: number;
   title: string;
   company: string;
   location: string;

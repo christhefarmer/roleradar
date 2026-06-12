@@ -2,28 +2,11 @@
 // mono fit score, 8-segment dimension meter, reason chips and flags; expanding
 // reveals the transparent fit breakdown. A score is never shown without its why.
 
-import type { CSSProperties } from 'react';
 import { DIMS } from '../data/seed';
 import type { Role } from '../domain/types';
 import { useStore } from '../state/store';
-import { EligBadge, formatDiscovered, MONO } from '../ui/primitives';
+import { EligBadge, filterToggleStyle, formatDiscovered, MONO } from '../ui/primitives';
 import { VERDICTS, chipTone, defNote, eligVm, fillColor, fillFor, meterColor } from '../ui/tones';
-
-function filterToggleStyle(on: boolean): CSSProperties {
-  return {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 7,
-    border: `1px solid ${on ? '#211E18' : 'var(--rr-border)'}`,
-    background: on ? '#211E18' : 'var(--rr-surface)',
-    color: on ? 'var(--rr-paper)' : 'var(--rr-faint)',
-    cursor: 'pointer',
-    padding: '6px 12px',
-    borderRadius: 7,
-    fontFamily: MONO,
-    fontSize: 11,
-  };
-}
 
 export function RecommendedView() {
   const { state, dispatch, startRun } = useStore();

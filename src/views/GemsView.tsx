@@ -1,43 +1,108 @@
 // Hidden Gems — gold-keyed cards, each leading with *why it surfaced*
 // (content match or company signal) and Confirm → promote / Dismiss.
 
+import { useState } from 'react';
 import { gemsForView, hiddenPendingGemCount } from '../state/selectors';
 import { useStore } from '../state/store';
-import { EligBadge, MONO } from '../ui/primitives';
+import { EligBadge, filterToggleStyle, MONO } from '../ui/primitives';
+
+const INTRO_DISMISSED_KEY = 'rr-gems-intro-dismissed';
 
 export function GemsView() {
   const { state, dispatch } = useStore();
+  const [introDismissed, setIntroDismissed] = useState(
+    () => localStorage.getItem(INTRO_DISMISSED_KEY) === '1',
+  );
   // Shared selector with the sidebar badge: role-dismissals hide the gem,
   // promoted gems live in Roles now, and the Canada filter applies.
-  const gems = gemsForView(state);
+  const gems = [...gemsForView(state)].sort((a, b) =>
+    state.sortBy === 'new' ? (a.days ?? 0) - (b.days ?? 0) : b.fit - a.fit,
+  );
   const hiddenByFilters = hiddenPendingGemCount(state);
 
   return (
     <>
-      <div
-        style={{
-          maxWidth: 760,
-          marginBottom: 20,
-          background: '#FBF6E9',
-          border: '1px solid #E9DBB6',
-          borderRadius: 11,
-          padding: '16px 18px',
-          display: 'flex',
-          gap: 13,
-          alignItems: 'flex-start',
-        }}
-      >
-        <span style={{ color: 'var(--rr-caution)', fontSize: 18, flex: '0 0 auto', lineHeight: 1.2 }}>◆</span>
-        <div>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#5C4413' }}>
-            Roles your search terms missed — surfaced on content, not titles.
+      {!introDismissed && (
+        <div
+          style={{
+            maxWidth: 760,
+            marginBottom: 20,
+            background: '#FBF6E9',
+            border: '1px solid #E9DBB6',
+            borderRadius: 11,
+            padding: '16px 18px',
+            display: 'flex',
+            gap: 13,
+            alignItems: 'flex-start',
+          }}
+        >
+          <span style={{ color: 'var(--rr-caution)', fontSize: 18, flex: '0 0 auto', lineHeight: 1.2 }}>◆</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#5C4413' }}>
+              Roles your search terms missed — surfaced on content, not titles.
+            </div>
+            <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#7A6A3E', lineHeight: 1.55, textWrap: 'pretty' }}>
+              Two ways in: <b>content match</b> (a generic title whose description is full of your stack)
+              and <b>company signal</b> (a generalist role at a known Apple-heavy fleet). Confirm to
+              promote into your ranked list, or dismiss.
+            </p>
           </div>
-          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#7A6A3E', lineHeight: 1.55, textWrap: 'pretty' }}>
-            Two ways in: <b>content match</b> (a generic title whose description is full of your stack)
-            and <b>company signal</b> (a generalist role at a known Apple-heavy fleet). Confirm to
-            promote into your ranked list, or dismiss.
-          </p>
+          <button
+            onClick={() => {
+              localStorage.setItem(INTRO_DISMISSED_KEY, '1');
+              setIntroDismissed(true);
+            }}
+            title="Dismiss"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: '#C2A567',
+              cursor: 'pointer',
+              fontSize: 16,
+              lineHeight: 1,
+              padding: '0 2px',
+              flex: '0 0 auto',
+            }}
+          >
+            ×
+          </button>
         </div>
+      )}
+
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}
+      >
+        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--rr-faint)', letterSpacing: '0.06em' }}>
+          SORT
+        </span>
+        <button
+          onClick={() => dispatch({ type: 'SET_SORT', sortBy: 'fit' })}
+          style={filterToggleStyle(state.sortBy === 'fit')}
+        >
+          fit
+        </button>
+        <button
+          onClick={() => dispatch({ type: 'SET_SORT', sortBy: 'new' })}
+          style={filterToggleStyle(state.sortBy === 'new')}
+        >
+          newest
+        </button>
+        <span style={{ width: 1, height: 20, background: '#E2DDD1', margin: '0 4px' }} />
+        <button onClick={() => dispatch({ type: 'TOGGLE_CANADA' })} style={filterToggleStyle(state.canadaOnly)}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 2,
+              background: state.canadaOnly ? '#7BC99A' : '#D8D3C8',
+            }}
+          />
+          Canada-eligible only
+        </button>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--rr-faint)' }}>
+          {gems.length} gem{gems.length === 1 ? '' : 's'} shown
+        </span>
       </div>
 
       {gems.length === 0 && (
