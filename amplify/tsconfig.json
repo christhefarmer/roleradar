@@ -10,8 +10,15 @@
     "skipLibCheck": true,
     "noEmit": true,
     "paths": {
-      "$amplify/*": ["../.amplify/generated/*"]
-    }
+      "$amplify/*": [
+        "../.amplify/generated/*"
+      ]
+    },
+    "types": [
+      "node"
+    ]
   },
-  "include": ["**/*.ts"]
+  "include": [
+    "**/*.ts"
+  ]
 }
