@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import type { ViewKey } from '../domain/types';
+import { pendingGemCount } from '../state/selectors';
 import { useStore } from '../state/store';
 import { HatGlasses } from '../ui/HatGlasses';
 import { MONO } from '../ui/primitives';
@@ -25,7 +26,9 @@ export function Sidebar() {
   const { state, dispatch, api } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const gemOpen = state.gems.filter((g) => !state.gemDecisions[g.id]).length;
+  // Same visibility rules as the Gems view — the badge must never promise
+  // gems the page won't show.
+  const gemOpen = pendingGemCount(state);
   const queue = state.proposals.filter((p) => !state.proposalState[p.id]).length;
   const badges: Partial<Record<ViewKey, number>> = { radar: queue, gems: gemOpen };
   // Gems only earns a nav slot when there is something to triage (kept
