@@ -261,6 +261,7 @@ function rowToUiGem(row: RoleRow): Gem | null {
     id: row.id,
     recordId: row.id,
     url: row.url ?? undefined,
+    days: daysBetween(row.firstSeen, new Date()),
     title: row.title,
     company: row.company,
     location: row.location ?? '',

@@ -19,6 +19,23 @@ export function formatDiscovered(iso: string): string {
   ).slice(-2)}`;
 }
 
+/** Filter-bar toggle/sort button (Roles, Gems) — dark when active. */
+export function filterToggleStyle(on: boolean): CSSProperties {
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+    border: `1px solid ${on ? '#211E18' : 'var(--rr-border)'}`,
+    background: on ? '#211E18' : 'var(--rr-surface)',
+    color: on ? 'var(--rr-paper)' : 'var(--rr-faint)',
+    cursor: 'pointer',
+    padding: '6px 12px',
+    borderRadius: 7,
+    fontFamily: MONO,
+    fontSize: 11,
+  };
+}
+
 /** Uppercase tracked mono section label (DESIGN.md `label-caps` voice). */
 export function SectionLabel({
   children,
