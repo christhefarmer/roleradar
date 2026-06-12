@@ -439,6 +439,7 @@ export function resetAccountCache(): void {
   singletons = null;
   profileId = null;
   searchConfigId = null;
+  resetChat();
 }
 
 /** Load the owner's account; create the empty Profile + default SearchConfig
@@ -1035,33 +1036,132 @@ function baselineFit(wire: ScoredRoleWire, cfg: SearchConfigState): FitJson {
 // ---------------------------------------------------------------------------
 // Radar conversation (AI Kit conversation route, streaming)
 
+interface ConversationTurnError {
+  errorType?: string;
+  message?: string;
+}
+
+interface ConversationMessageLite {
+  id: string;
+  role: 'user' | 'assistant';
+  createdAt: string;
+  content?: ({ text?: string } | null)[] | null;
+}
+
 type ConversationHandle = {
-  sendMessage: (input: string) => Promise<unknown>;
+  id: string;
+  updatedAt?: string;
+  sendMessage: (input: {
+    content: { text: string }[];
+    aiContext?: Record<string, unknown>;
+  }) => Promise<{ errors?: { message?: string }[] }>;
+  listMessages: (input?: {
+    limit?: number;
+    nextToken?: string | null;
+  }) => Promise<{ data?: (ConversationMessageLite | null)[] | null; nextToken?: string | null }>;
   onStreamEvent: (handlers: {
     next: (event: { text?: string; stopReason?: string }) => void;
-    error: (error: unknown) => void;
+    error: (error: { errors?: ConversationTurnError[] } | unknown) => void;
   }) => { unsubscribe: () => void };
 };
 
-let conversation: ConversationHandle | null = null;
+export interface ChatStreamHandlers {
+  onDelta: (delta: string) => void;
+  onDone: () => void;
+  /** Turn errors (e.g. Bedrock AccessDenied) — surfaced, never swallowed. */
+  onError: (message: string) => void;
+}
+
+let conversationPromise: Promise<ConversationHandle> | null = null;
+let streamSub: { unsubscribe: () => void } | null = null;
+let handlers: ChatStreamHandlers | null = null;
+
+function formatTurnError(error: unknown): string {
+  const errs = (error as { errors?: ConversationTurnError[] })?.errors;
+  if (Array.isArray(errs) && errs.length) {
+    return errs
+      .map((e) => [e.errorType, e.message].filter(Boolean).join(': '))
+      .join('; ');
+  }
+  if (error instanceof Error) return error.message;
+  return 'stream error';
+}
+
+/** Resume the owner's most recent Radar conversation (history persists per
+ *  owner — ARCHITECTURE.md §3), or start one. Single-flight so concurrent
+ *  callers share the bootstrap; the stream subscription is attached before
+ *  any send so the head of the stream is never lost. */
+function ensureConversation(): Promise<ConversationHandle> {
+  if (!conversationPromise) {
+    conversationPromise = (async () => {
+      const c = client();
+      // Conversation lists are unordered, sparse-filtered pages — read them
+      // all and sort client-side.
+      const { rows } = await listAllPages<ConversationHandle>(
+        (o) => c.conversations.chat.list(o) as never,
+      );
+      let conv = rows.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))[0];
+      if (!conv) {
+        const created = await c.conversations.chat.create({ name: 'Radar' });
+        if (!created.data) throw new Error('Could not start a Radar conversation');
+        conv = created.data as unknown as ConversationHandle;
+      }
+      streamSub = conv.onStreamEvent({
+        next: (event) => {
+          if (event.text) handlers?.onDelta(event.text);
+          if (event.stopReason) handlers?.onDone();
+        },
+        error: (error) => {
+          console.error('radar stream', error);
+          handlers?.onError(formatTurnError(error));
+        },
+      });
+      return conv;
+    })().catch((e) => {
+      conversationPromise = null; // allow retry on the next call
+      throw e;
+    });
+  }
+  return conversationPromise;
+}
+
+/** Prior turns for hydration, oldest first. Tool-use rows carry no text and
+ *  are dropped; aiContext travels out-of-band so history is clean prose. */
+export async function loadChatHistory(): Promise<{ role: 'bot' | 'user'; text: string }[]> {
+  const conv = await ensureConversation();
+  const { rows } = await listAllPages<ConversationMessageLite>(
+    (o) => conv.listMessages(o) as never,
+  );
+  return rows
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map((m) => ({
+      role: m.role === 'assistant' ? ('bot' as const) : ('user' as const),
+      text: (m.content ?? [])
+        .map((b) => b?.text ?? '')
+        .join('')
+        .trim(),
+    }))
+    .filter((m) => m.text);
+}
 
 export async function sendChatRemote(
   text: string,
-  onDelta: (delta: string) => void,
-  onDone: () => void,
+  aiContext: Record<string, unknown>,
+  streamHandlers: ChatStreamHandlers,
 ): Promise<void> {
-  const c = client();
-  if (!conversation) {
-    const { data } = await c.conversations.chat.create();
-    if (!data) throw new Error('Could not start a Radar conversation');
-    conversation = data as unknown as ConversationHandle;
-    conversation.onStreamEvent({
-      next: (event) => {
-        if (event.text) onDelta(event.text);
-        if (event.stopReason) onDone();
-      },
-      error: () => onDone(),
-    });
+  handlers = streamHandlers;
+  const conv = await ensureConversation();
+  const res = await conv.sendMessage({ content: [{ text }], aiContext });
+  if (res.errors?.length) {
+    streamHandlers.onError(res.errors.map((e) => e.message ?? 'send failed').join('; '));
   }
-  await conversation.sendMessage(text);
+}
+
+/** Drop the conversation binding (sign-out / account switch) so the next
+ *  session resumes the right owner's thread. */
+export function resetChat(): void {
+  streamSub?.unsubscribe();
+  streamSub = null;
+  conversationPromise = null;
+  handlers = null;
 }

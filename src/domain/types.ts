@@ -191,6 +191,8 @@ export interface ChatMessage {
   text?: string;
   /** Desktop rail: the proposal queue rides along with this bot message. */
   showProposals?: boolean;
+  /** This bot bubble reports a failed turn (rendered in the risk palette). */
+  error?: boolean;
 }
 
 export type Autonomy = 'conservative' | 'balanced' | 'wide';
