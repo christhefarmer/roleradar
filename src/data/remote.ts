@@ -856,16 +856,21 @@ const PROVIDER_SRC: Record<string, string> = {
   bamboohr: 'BambooHR',
 };
 
-/** Probe the ATS boards (server-side) for a company's slug. Returns a fully
- *  tagged watchlist entry, or null when no public board was found. */
-export async function resolveCompanyRemote(name: string): Promise<WatchEntry | null> {
+/** Probe the ATS boards (server-side) for a company's slugs. Companies often
+ *  run more than one ATS — returns one tagged entry per board found (empty
+ *  when no public board exists). */
+export async function resolveCompanyRemote(name: string): Promise<WatchEntry[]> {
   const res = await client().mutations.resolveBoard({ company: name });
-  const result = parseJsonField<{ found: boolean; provider?: string; slug?: string } | null>(
-    res.data,
-    null,
-  );
-  if (!result?.found || !result.provider || !result.slug) return null;
-  return { name, src: PROVIDER_SRC[result.provider] ?? 'RSS', slug: result.slug };
+  const result = parseJsonField<{
+    found: boolean;
+    boards?: { provider?: string; slug?: string }[];
+    provider?: string;
+    slug?: string;
+  } | null>(res.data, null);
+  const boards = result?.boards ?? (result?.provider ? [{ provider: result.provider, slug: result.slug }] : []);
+  return boards
+    .filter((b) => b.provider && b.slug)
+    .map((b) => ({ name, src: PROVIDER_SRC[b.provider!] ?? 'RSS', slug: b.slug }));
 }
 
 // ---------------------------------------------------------------------------

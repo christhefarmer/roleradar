@@ -6,10 +6,12 @@ interface ResolveEvent {
   arguments: { company: unknown };
 }
 
+type Provider = 'greenhouse' | 'lever' | 'ashby' | 'workable' | 'smartrecruiters' | 'bamboohr';
+
 interface ResolveResult {
   found: boolean;
-  provider?: 'greenhouse' | 'lever' | 'ashby' | 'workable' | 'smartrecruiters' | 'bamboohr';
-  slug?: string;
+  /** Every board the company has — companies often run more than one ATS. */
+  boards: { provider: Provider; slug: string }[];
 }
 
 /** Candidate slugs from a company name: "Canada Life" → canadalife, canada-life. */
@@ -32,10 +34,7 @@ async function ok(url: string): Promise<boolean> {
   }
 }
 
-const PROBES: {
-  provider: 'greenhouse' | 'lever' | 'ashby' | 'workable' | 'smartrecruiters' | 'bamboohr';
-  url: (slug: string) => string;
-}[] = [
+const PROBES: { provider: Provider; url: (slug: string) => string }[] = [
   {
     provider: 'greenhouse',
     url: (slug) => `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(slug)}/jobs`,
@@ -72,14 +71,19 @@ export const handler = async (event: ResolveEvent): Promise<string> => {
     }
   }
   const company = String(raw ?? '').trim();
-  if (!company) return JSON.stringify({ found: false } satisfies ResolveResult);
+  if (!company) return JSON.stringify({ found: false, boards: [] } satisfies ResolveResult);
 
-  for (const slug of slugCandidates(company)) {
-    for (const probe of PROBES) {
-      if (await ok(probe.url(slug))) {
-        return JSON.stringify({ found: true, provider: probe.provider, slug } satisfies ResolveResult);
+  const candidates = slugCandidates(company);
+  // Probe every provider in parallel — companies often run more than one ATS
+  // (and sequential worst-case would outrun the function timeout).
+  const results = await Promise.all(
+    PROBES.map(async (probe) => {
+      for (const slug of candidates) {
+        if (await ok(probe.url(slug))) return { provider: probe.provider, slug };
       }
-    }
-  }
-  return JSON.stringify({ found: false } satisfies ResolveResult);
+      return null;
+    }),
+  );
+  const boards = results.filter((b): b is { provider: Provider; slug: string } => b !== null);
+  return JSON.stringify({ found: boards.length > 0, boards } satisfies ResolveResult);
 };
