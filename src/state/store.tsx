@@ -51,6 +51,7 @@ import {
   WATCHLIST,
 } from '../data/seed';
 import { botReply } from '../data/botReplies';
+import { buildChatContext } from '../data/aiContext';
 import { isConnected } from '../lib/amplify';
 import * as auth from '../auth/authService';
 import * as remote from '../data/remote';
@@ -257,6 +258,8 @@ export type Action =
   | { type: 'CHAT_PUSH'; role: 'bot' | 'user'; text: string }
   | { type: 'CHAT_APPEND'; text: string }
   | { type: 'CHAT_BUSY'; busy: boolean }
+  | { type: 'CHAT_HYDRATE'; messages: ChatMessage[] }
+  | { type: 'CHAT_ERROR'; text: string }
   | { type: 'SET_AUTH_MODE'; mode: AuthMode }
   | { type: 'SIGN_IN'; email?: string; name?: string }
   | { type: 'VERIFY'; name?: string; email?: string }
@@ -531,6 +534,30 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'CHAT_BUSY':
       return { ...state, chatBusy: action.busy };
+    case 'CHAT_HYDRATE': {
+      if (!action.messages.length) return state;
+      // Re-attach the approval queue to the last bot message so the rail's
+      // proposal cards survive history hydration.
+      const pending = state.proposals.some((p) => !state.proposalState[p.id]);
+      const chat = [...action.messages];
+      for (let i = chat.length - 1; i >= 0 && pending; i--) {
+        if (chat[i].role === 'bot') {
+          chat[i] = { ...chat[i], showProposals: true };
+          break;
+        }
+      }
+      return { ...state, chat };
+    }
+    case 'CHAT_ERROR': {
+      const chat = [...state.chat];
+      const last = chat[chat.length - 1];
+      if (last?.role === 'bot' && !last.text) {
+        chat[chat.length - 1] = { ...last, text: action.text, error: true };
+      } else {
+        chat.push({ role: 'bot', text: action.text, error: true });
+      }
+      return { ...state, chat, chatBusy: false };
+    }
     case 'SET_AUTH_MODE':
       return { ...state, authMode: action.mode };
     case 'SIGN_IN':
@@ -674,6 +701,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Resume the persisted Radar conversation (fire-and-forget — chat falls
+  // back to the greeting if history can't load; never blocks hydration).
+  const hydrateChat = useCallback(() => {
+    remote
+      .loadChatHistory()
+      .then((messages) => {
+        if (messages.length) rawDispatch({ type: 'CHAT_HYDRATE', messages });
+      })
+      .catch((e) => console.warn('chat history', e));
+  }, []);
+
   // Connected boot: restore the Cognito session, then hydrate the account
   // (creating the empty Profile + default SearchConfig on first sign-in).
   useEffect(() => {
@@ -694,7 +732,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       try {
         const snapshot = await remote.loadAccount();
-        if (!cancelled) rawDispatch({ type: 'HYDRATE', snapshot });
+        if (!cancelled) {
+          rawDispatch({ type: 'HYDRATE', snapshot });
+          hydrateChat();
+        }
       } catch (e) {
         console.warn('hydrate', e);
       }
@@ -702,17 +743,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hydrateAfterAuth = useCallback(async (name?: string, email?: string) => {
-    rawDispatch({ type: 'SIGN_IN', name, email });
-    try {
-      const snapshot = await remote.loadAccount();
-      rawDispatch({ type: 'HYDRATE', snapshot });
-    } catch (e) {
-      console.warn('hydrate', e);
-    }
-  }, []);
+  const hydrateAfterAuth = useCallback(
+    async (name?: string, email?: string) => {
+      rawDispatch({ type: 'SIGN_IN', name, email });
+      try {
+        const snapshot = await remote.loadAccount();
+        rawDispatch({ type: 'HYDRATE', snapshot });
+        hydrateChat();
+      } catch (e) {
+        console.warn('hydrate', e);
+      }
+    },
+    [hydrateChat],
+  );
 
   const startRun = useCallback(() => {
     if (runningRef.current) return;
@@ -877,22 +923,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'SEND_CHAT', text: t });
           return;
         }
+        // Grounding context rides with every message — built before the
+        // optimistic pushes so it reflects the state the user was looking at.
+        const aiContext = buildChatContext(stateRef.current);
         rawDispatch({ type: 'CHAT_PUSH', role: 'user', text: t });
         rawDispatch({ type: 'CHAT_PUSH', role: 'bot', text: '' });
         rawDispatch({ type: 'CHAT_BUSY', busy: true });
-        remote
-          .sendChatRemote(
-            t,
-            (delta) => rawDispatch({ type: 'CHAT_APPEND', text: delta }),
-            () => rawDispatch({ type: 'CHAT_BUSY', busy: false }),
-          )
-          .catch(() => {
-            rawDispatch({
-              type: 'CHAT_APPEND',
-              text: '— I could not reach my reasoning model. Check that Bedrock model access is enabled for the configured Claude model, then try again.',
-            });
-            rawDispatch({ type: 'CHAT_BUSY', busy: false });
+        const fail = (message: string) =>
+          rawDispatch({
+            type: 'CHAT_ERROR',
+            text: `⚠ My reasoning model is unreachable — ${message}. If this mentions access, enable Bedrock model access for the configured Claude models in the app's region, then try again.`,
           });
+        remote
+          .sendChatRemote(t, aiContext, {
+            onDelta: (delta) => rawDispatch({ type: 'CHAT_APPEND', text: delta }),
+            onDone: () => rawDispatch({ type: 'CHAT_BUSY', busy: false }),
+            onError: fail,
+          })
+          .catch((e) => fail(e instanceof Error ? e.message : String(e)));
       },
     }),
     [dispatch, hydrateAfterAuth],

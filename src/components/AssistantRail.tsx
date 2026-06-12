@@ -170,13 +170,14 @@ export function AssistantRail() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
-                    background: 'var(--rr-surface)',
-                    border: '1px solid var(--rr-border)',
+                    background: m.error ? 'var(--rr-risk-tint)' : 'var(--rr-surface)',
+                    border: `1px solid ${m.error ? '#E6CBBE' : 'var(--rr-border)'}`,
+                    borderLeft: m.error ? '3px solid var(--rr-risk)' : undefined,
                     borderRadius: '3px 12px 12px 12px',
                     padding: '11px 13px',
                     fontSize: 13,
                     lineHeight: 1.55,
-                    color: '#3A352D',
+                    color: m.error ? 'var(--rr-risk-strong)' : '#3A352D',
                     textWrap: 'pretty',
                   }}
                 >

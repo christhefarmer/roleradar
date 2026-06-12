@@ -10,8 +10,11 @@ import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 import { resolveBoard } from '../functions/resolve-board/resource';
 import { sweep } from '../functions/sweep/resource';
 
-// Keep the model id in one place; allow upgrade (ARCHITECTURE.md §3).
-const AI_MODEL = a.ai.model('Claude Sonnet 4.6');
+// Keep model ids in one place; allow upgrade (ARCHITECTURE.md §3).
+// Chat gets the strong model (the owner reads every word); the structured
+// extraction routes ride a faster, cheaper one.
+const CHAT_MODEL = a.ai.model('Claude Sonnet 4.6');
+const FAST_MODEL = a.ai.model('Claude Haiku 4.5');
 
 const schema = a.schema({
   // ----- per-account data ---------------------------------------------------
@@ -138,24 +141,36 @@ const schema = a.schema({
   // by writing Proposal rows for the owner to approve in the queue.
   chat: a
     .conversation({
-      aiModel: AI_MODEL,
+      aiModel: CHAT_MODEL,
       systemPrompt: [
-        'You are Radar, a calm, precise job-hunt scout for one specific senior IT',
-        'specialist (Apple/macOS endpoint management — Jamf, Intune, MDM, identity/SSO —',
-        'plus React/TypeScript/AWS build credibility; Winnipeg, Canada-eligible).',
-        'Ground every answer in the owner’s records via your tools — top matches,',
-        'hidden gems, phantoms, proposals, pipeline. Always explain fit scores in plain',
-        'language with their per-dimension reasoning; never present a score without its',
-        'why. Eligibility, fit and phantom flags are heuristic hints with provenance,',
-        'not certainty. You never apply to roles, never contact anyone, and never',
-        'change search state yourself: you propose, and the owner approves. Keep the',
-        'tone of a well-built instrument: precise, technical, quiet.',
-      ].join(' '),
+        'You are Radar, a calm, precise job-hunt scout working for the owner of this',
+        'account. Everything you know about the owner — their specialty, seniority,',
+        'location, strengths — comes ONLY from the context snapshot attached to each',
+        'message and from your tools. Never assume who they are.',
+        '',
+        'GROUNDING CONTRACT (hard rules):',
+        '- Every user message carries a JSON context snapshot: profile facts and',
+        '  strengths, search config (terms, watchlist, excluded companies, sources),',
+        '  the latest sweep summary, the top visible roles, and pending proposals.',
+        '- Answer ONLY from that snapshot plus tool results. If neither contains the',
+        '  answer, say plainly that the records do not show it — for example "my',
+        '  scouts have not seen that". Never invent roles, companies, scores, dates,',
+        '  salaries, or résumé facts.',
+        '- Quote a fit score only together with its reasoning. Eligibility, fit and',
+        '  phantom flags are heuristic hints with provenance — present them as hints',
+        '  the owner can override, never as certainty.',
+        '- Stay on the owner’s job hunt. Politely decline anything outside it.',
+        '',
+        'ACTING (product invariant): you never apply to roles, never contact anyone,',
+        'and never change search state yourself. You propose; the owner approves in',
+        'the queue. Keep the tone of a well-built instrument: precise, technical,',
+        'quiet.',
+      ].join('\n'),
       tools: [
         a.ai.dataTool({
           name: 'listRoles',
           description:
-            'List the owner’s normalized roles with fit scores, verdicts, eligibility, phantom signals, gem flags and pipeline stages.',
+            'List the owner’s normalized roles with fit scores, verdicts, eligibility, phantom signals, gem flags and pipeline stages. The context snapshot already carries the top visible roles — use this tool when you need the full set or roles outside the snapshot.',
           model: a.ref('Role'),
           modelOperation: 'list',
         }),
@@ -172,6 +187,20 @@ const schema = a.schema({
           model: a.ref('SweepRun'),
           modelOperation: 'list',
         }),
+        a.ai.dataTool({
+          name: 'listProfile',
+          description:
+            'The owner’s résumé text, parsed strengths, and profile facts (seniority, location, work eligibility).',
+          model: a.ref('Profile'),
+          modelOperation: 'list',
+        }),
+        a.ai.dataTool({
+          name: 'listSearchConfig',
+          description:
+            'The owner’s search term groups, company watchlist, paused and excluded companies, active sources, and autonomy setting.',
+          model: a.ref('SearchConfig'),
+          modelOperation: 'list',
+        }),
       ],
     })
     .authorization((allow) => allow.owner()),
@@ -181,7 +210,7 @@ const schema = a.schema({
   // hints the owner confirms or edits — never overrides their judgment.
   parseProfile: a
     .generation({
-      aiModel: AI_MODEL,
+      aiModel: FAST_MODEL,
       systemPrompt: [
         'You parse a résumé (and optional LinkedIn text) for a job-hunt scout.',
         'Extract: (1) strengths — up to 8, each mapped to one fit dimension key',
@@ -212,7 +241,7 @@ const schema = a.schema({
   // output; powers the signature fit-with-reasoning card.
   generateFit: a
     .generation({
-      aiModel: AI_MODEL,
+      aiModel: FAST_MODEL,
       systemPrompt: [
         'You score job postings against a specific owner profile. Compare the role',
         'description to the profile strengths and return an honest, structured fit',
