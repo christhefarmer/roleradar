@@ -11,10 +11,15 @@ import { resolveBoard } from '../functions/resolve-board/resource';
 import { sweep } from '../functions/sweep/resource';
 
 // Keep model ids in one place; allow upgrade (ARCHITECTURE.md §3).
-// Chat gets the strong model (the owner reads every word); the structured
-// extraction routes ride a faster, cheaper one.
-const CHAT_MODEL = a.ai.model('Claude Sonnet 4.6');
-const FAST_MODEL = a.ai.model('Claude Haiku 4.5');
+// Compatibility baseline: plain regional model ids that exist in
+// ca-central-1. The newer 'Claude Sonnet 4.6' / 'Claude Haiku 4.5' names map
+// to global.* cross-region inference profiles, which fail from this region
+// with "model is disabled or missing identity-based policy" until the
+// account's entitlement/policy story for global profiles is sorted — verify
+// with `aws bedrock-runtime converse --model-id global.anthropic...` from
+// CloudShell before flipping these back.
+const CHAT_MODEL = a.ai.model('Claude 3.5 Sonnet');
+const FAST_MODEL = a.ai.model('Claude 3 Haiku');
 
 const schema = a.schema({
   // ----- per-account data ---------------------------------------------------
