@@ -61,7 +61,7 @@ export interface NormalizedRole {
   sourceName: string;
   salary?: string;
   eligibility: {
-    state: 'ca' | 'us' | 'unknown';
+    state: 'ca' | 'us' | 'other' | 'remote' | 'unknown';
     label: string;
     /** Provenance — e.g. `Greenhouse location field: "Canada (Remote)"`. */
     detail: string;
@@ -92,21 +92,49 @@ export function extractSalary(text: string): string | undefined {
   return undefined;
 }
 
+// Geo signals for the eligibility hint. Country/region words and large hiring
+// hubs — coarse on purpose; anything unmatched stays an honest "unknown".
+const CA_RE =
+  /canada|canadian|\b(ontario|qu[ée]bec|british columbia|alberta|manitoba|saskatchewan|nova scotia|new brunswick|newfoundland|prince edward island|yukon|nunavut)\b|\b(toronto|vancouver|montr[ée]al|winnipeg|calgary|edmonton|ottawa|halifax|victoria|mississauga|waterloo|kitchener|burnaby|regina|saskatoon|gatineau|laval|hamilton|london,? on)\b|,\s*(on|bc|ab|mb|qc|sk|ns|nb|nl|pe|yt|nt|nu)\b/i;
+
+const US_RE =
+  /united states|\busa?\b(?!\w)|u\.s\.|us[- ]only|us remote|\b(new york|san francisco|seattle|austin|boston|chicago|denver|atlanta|los angeles|dallas|houston|miami|portland|phoenix|philadelphia|washington,? dc)\b|,\s*(ny|wa|tx|ma|co|il|ga|fl|pa|az|nc|va|or|ut|md|mn|mi|oh|nj|tn|wi|mo|in|sc|ky|al|la|ok|ks|nv|ia|ar|ms|ct|dc)\b/i;
+
+const OTHER_RE =
+  /\b(uk|united kingdom|england|scotland|wales|ireland|india|poland|germany|france|netherlands|spain|portugal|italy|romania|czech|hungary|ukraine|austria|belgium|sweden|norway|denmark|finland|switzerland|australia|new zealand|singapore|japan|china|hong kong|taiwan|korea|brazil|mexico|argentina|colombia|chile|philippines|indonesia|vietnam|thailand|malaysia|pakistan|bangladesh|sri lanka|nigeria|kenya|south africa|egypt|israel|uae|dubai|saudi|turkey|emea|apac|latam|europe|european)\b|\b(london|dublin|warsaw|krak[óo]w|berlin|munich|amsterdam|paris|madrid|barcelona|lisbon|milan|rome|bangalore|bengaluru|hyderabad|mumbai|delhi|pune|chennai|noida|gurgaon|gurugram|tokyo|sydney|melbourne|tel aviv|zurich|stockholm|copenhagen|oslo|helsinki|prague|budapest|bucharest|vienna|brussels|manchester|edinburgh|belfast|cork)\b/i;
+
+const REMOTE_RE = /\bremote\b|work from home|anywhere|worldwide|\bglobal\b|distributed/i;
+
 /** Eligibility is a heuristic hint read from the location text — flagged,
- *  never assumed. Always returned with provenance for the override UI. */
+ *  never assumed. Always returned with provenance for the override UI.
+ *  Order matters: an explicit region beats a bare "remote". */
 export function eligibilityFromLocation(
   location: string,
   provenance: string,
 ): NormalizedRole['eligibility'] {
   const loc = location.toLowerCase();
-  if (/canada|\bca\b|toronto|vancouver|montr[ée]al|winnipeg|calgary|ottawa|remote.*canada/.test(loc)) {
+  if (CA_RE.test(loc)) {
     return { state: 'ca', label: 'CA ✓', detail: `${provenance} reads “${location}”. Canada-eligible.` };
   }
-  if (/united states|\bus\b|usa|us only|us-only|us remote/.test(loc)) {
+  if (OTHER_RE.test(loc)) {
+    return {
+      state: 'other',
+      label: 'NOT CA',
+      detail: `${provenance} reads “${location}” — outside Canada. Hidden by the Canada filter; override only if the posting allows Canadian remote.`,
+    };
+  }
+  if (US_RE.test(loc)) {
     return {
       state: 'us',
       label: 'US ONLY',
       detail: `${provenance} reads “${location}”. Requires US authorization — override only if you hold it.`,
+    };
+  }
+  if (REMOTE_RE.test(loc)) {
+    return {
+      state: 'remote',
+      label: 'REMOTE ✻',
+      detail: `${provenance} reads “${location}” — remote with no stated region. Verify Canada eligibility on the posting.`,
     };
   }
   return {

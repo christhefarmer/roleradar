@@ -31,7 +31,12 @@ export function RecommendedView() {
   let list = state.roles.filter(
     (r) => !state.dismissed[r.id] && !state.excluded.includes(r.company),
   );
-  if (state.canadaOnly) list = list.filter((r) => !(r.elig.state === 'us' && !state.overrides[r.id]));
+  // Canada or remote only: confirmed-CA and regionless-remote pass; US-only,
+  // elsewhere-international and unclassifiable stay hidden unless overridden.
+  if (state.canadaOnly)
+    list = list.filter(
+      (r) => r.elig.state === 'ca' || r.elig.state === 'remote' || state.overrides[r.id],
+    );
   if (state.hideBelow) list = list.filter((r) => r.verdict !== 'below' && r.verdict !== 'mismatch');
   const tierOf = (r: Role) => (r.verdict === 'below' || r.verdict === 'mismatch' ? 2 : 0);
   list = [...list].sort((a, b) => {
@@ -149,8 +154,8 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
   const elig = eligVm(r.elig);
   const expanded = !!state.expanded[r.id];
   const overridden = !!state.overrides[r.id];
-  const ineligibleNow = r.elig.state === 'us' && !overridden;
-  const down = r.down || ineligibleNow;
+  const blocked = r.elig.state === 'us' || r.elig.state === 'other';
+  const down = r.down || (blocked && !overridden);
   const stage = state.pipeline[r.id];
   const scoreColor = r.verdict === 'below' || r.verdict === 'mismatch' ? '#A39C8B' : v.color;
 
@@ -163,10 +168,13 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
           bd: on ? '#B0492B' : '#D8C8BF',
         })),
       }
-    : r.elig.state === 'us' && overridden
+    : blocked && overridden
       ? {
           label: '✕ INELIGIBLE',
-          text: 'US work authorization required — shown because you overrode the Canada filter.',
+          text:
+            r.elig.state === 'us'
+              ? 'US work authorization required — shown because you overrode the Canada filter.'
+              : 'Located outside Canada — shown because you overrode the Canada filter.',
           dots: [] as { bg: string; bd: string }[],
         }
       : null;
@@ -421,7 +429,13 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
                 fontSize: 10.5,
               }}
             >
-              {r.elig.state === 'us' ? (overridden ? 'Mark ineligible' : 'I have US auth') : 'Mark ineligible'}
+              {overridden
+                ? 'Mark ineligible'
+                : r.elig.state === 'us'
+                  ? 'I have US auth'
+                  : r.elig.state === 'ca'
+                    ? 'Mark ineligible'
+                    : 'Mark eligible'}
             </button>
           </div>
 

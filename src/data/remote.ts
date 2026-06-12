@@ -8,6 +8,7 @@ import type {
   ChipTone,
   DimKey,
   DimState,
+  EligState,
   Gem,
   PipelineStageKey,
   Proposal,
@@ -46,7 +47,7 @@ interface ScoredRoleWire {
   rawDescription: string;
   sourceName: string;
   salary?: string;
-  eligibility: { state: 'ca' | 'us' | 'unknown'; label: string; detail: string };
+  eligibility: { state: EligState; label: string; detail: string };
   score: number;
   matchedTerms: string[];
   titleHit: boolean;
@@ -197,7 +198,7 @@ const EMPTY_DIMS: Record<DimKey, DimState> = {
 
 function rowToUiRole(row: RoleRow): Role {
   const fit = parseJsonField<FitJson | null>(row.fit, null);
-  const elig = parseJsonField<{ state: 'ca' | 'us' | 'unknown'; label: string; detail?: string }>(
+  const elig = parseJsonField<{ state: EligState; label: string; detail?: string }>(
     row.eligibility,
     { state: 'unknown', label: 'CHECK ✻' },
   );
@@ -234,7 +235,7 @@ function rowToUiRole(row: RoleRow): Role {
     chips: fit?.chips ?? [],
     sentence: fit?.sentence ?? 'No fit read yet — run a sweep to score this role.',
     elig: {
-      state: elig.state === 'us' ? 'us' : 'ca',
+      state: elig.state ?? 'unknown',
       label: elig.label,
       detail: elig.detail,
     },
@@ -250,7 +251,7 @@ function rowToUiGem(row: RoleRow): Gem | null {
   );
   if (!gem) return null;
   const fit = parseJsonField<FitJson | null>(row.fit, null);
-  const elig = parseJsonField<{ state: 'ca' | 'us' | 'unknown'; label: string }>(row.eligibility, {
+  const elig = parseJsonField<{ state: EligState; label: string }>(row.eligibility, {
     state: 'unknown',
     label: 'CHECK ✻',
   });
@@ -273,7 +274,7 @@ function rowToUiGem(row: RoleRow): Gem | null {
         ? `A broad title at ${row.company} — a company on your watchlist — whose description still matched ${n} of your terms.`
         : `None of your search terms appear in this title, so a title search skips it — but the description matched ${n} of them.`,
     matches: gem.matches,
-    elig: { state: elig.state === 'us' ? 'us' : 'ca', label: elig.label },
+    elig: { state: elig.state ?? 'unknown', label: elig.label },
   };
 }
 
@@ -694,6 +695,9 @@ export async function runSweepRemote(
         ...(wire.location && !prev.location ? { location: wire.location } : {}),
         ...(wire.url && !prev.url ? { url: wire.url } : {}),
         ...(wire.salary ? { salary: wire.salary } : {}),
+        // Re-classify eligibility with the current geo rules — unless the
+        // owner overrode it, which always wins.
+        ...(prev.eligibilityOverridden ? {} : { eligibility: JSON.stringify(wire.eligibility) }),
       });
     } else {
       const created = await c.models.Role.create({
@@ -731,8 +735,14 @@ export async function runSweepRemote(
   if (resumeText.trim()) {
     const refreshed = await listAllRoles();
     const candidates = refreshed
-      // No AI spend on roles the owner already dismissed or muted out.
+      // No AI spend on roles the owner already dismissed, muted out, or that
+      // the Canada filter blocks (US-only / elsewhere international).
       .filter((r) => !r.dismissed && !cfg.excluded.includes(r.company))
+      .filter((r) => {
+        if (r.eligibilityOverridden) return true;
+        const state = parseJsonField<{ state?: EligState }>(r.eligibility, {}).state;
+        return state !== 'us' && state !== 'other';
+      })
       .filter((r) => parseJsonField<FitJson | null>(r.fit, null)?.source !== 'ai' && r.rawDescription)
       .sort(
         (a, b) =>
@@ -846,13 +856,20 @@ function baselineFit(wire: ScoredRoleWire, cfg: SearchConfigState): FitJson {
   const junior = /support specialist|help ?desk|junior|tier ?[12]|technician/.test(title);
   const senior = /senior|staff|lead|principal/.test(title);
   dims.level = junior ? 'thin' : senior ? 'hit' : 'partial';
-  dims.eligible = wire.eligibility.state === 'ca' ? 'hit' : wire.eligibility.state === 'us' ? 'us' : 'partial';
+  dims.eligible =
+    wire.eligibility.state === 'ca'
+      ? 'hit'
+      : wire.eligibility.state === 'us' || wire.eligibility.state === 'other'
+        ? 'us'
+        : 'partial';
 
   const verdict: VerdictKey = junior ? 'below' : wire.score >= 75 ? 'match' : 'reach';
   const chips: [string, ChipTone][] = wire.matchedTerms
     .slice(0, 3)
     .map((t) => [`+ ${t}`, 'good'] as [string, ChipTone]);
   if (wire.eligibility.state === 'us') chips.push(['✕ US-authorization only', 'bad']);
+  if (wire.eligibility.state === 'other') chips.push(['✕ Outside Canada', 'bad']);
+  if (wire.eligibility.state === 'remote') chips.push(['✻ Remote — verify region', 'warn']);
   if (junior) chips.push(['− Reads below level', 'warn']);
 
   return {
