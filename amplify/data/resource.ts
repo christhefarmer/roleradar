@@ -219,14 +219,21 @@ const schema = a.schema({
     .generation({
       aiModel: FAST_MODEL,
       systemPrompt: [
-        'You parse a résumé (and optional LinkedIn text) for a job-hunt scout.',
-        'Extract: (1) strengths — up to 8, each mapped to one fit dimension key',
-        '(macos, intune, identity, security, build, client, level) with a short',
-        'label, confidence HIGH | MED | RARE (RARE = an unusual edge worth',
-        'cross-listing), a weight 1-3, a bar 0-100, and a short evidence quote',
-        'lifted from the text; (2) suggestedTerms — job-search terms this person',
-        'should query; (3) suggestedCompanies — [{ name, reason }] employers worth',
-        'watching; (4) facts — { seniority, location, canadaEligible: boolean }.',
+        'You parse a résumé (and optional LinkedIn text) for a job-hunt scout and',
+        'produce the scout\'s entire search range. Extract:',
+        '(1) strengths — up to 8, each mapped to one fit dimension key (macos,',
+        'intune, identity, security, build, client, level) with a short label,',
+        'confidence HIGH | MED | RARE (RARE = an unusual edge worth cross-listing),',
+        'a weight 1-3, a bar 0-100, and a short evidence quote lifted from the text;',
+        '(2) termGroups — 3 to 5 named search-term groups derived from this résumé',
+        '(NOT generic categories): each { name, weight 1-3, terms: string[] } with',
+        '3-6 terms per group. Terms are short queries a job board understands —',
+        'job titles, technologies, certifications. Weight 3 = the person\'s core',
+        'lane, 1 = adjacent. Order groups by relevance;',
+        '(3) suggestedTerms — extra terms worth considering beyond the groups;',
+        '(4) suggestedCompanies — [{ name, reason }] employers worth watching,',
+        'inferred from the text (vendors used, industries, named employers\' peers);',
+        '(5) facts — { seniority, location, canadaEligible: boolean }.',
         'Be honest and grounded in the text; do not invent experience.',
       ].join(' '),
     })
@@ -237,6 +244,7 @@ const schema = a.schema({
     .returns(
       a.customType({
         strengths: a.json().required(),
+        termGroups: a.json(),
         suggestedTerms: a.string().array(),
         suggestedCompanies: a.json(),
         facts: a.json(),
