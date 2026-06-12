@@ -344,9 +344,12 @@ export async function loadAccount(): Promise<AccountSnapshot> {
     const ui = rowToUiRole(row);
     roles.push(ui);
     const gem = rowToUiGem(row);
-    // A dismissal at either level (the gem card or the role itself) keeps the
-    // posting hidden — dismissed means dismissed, everywhere.
-    if (gem && row.gemDecision !== 'dismissed' && !row.dismissed) gems.push(gem);
+    // The gems list is a triage queue: only undecided gems belong in it.
+    // Confirmed ones have been promoted into Recommended (the role row is
+    // already ranked there); dismissed ones stay hidden. Either decision
+    // — or a role-level dismissal — removes the card.
+    if (gem && (row.gemDecision == null || row.gemDecision === 'pending') && !row.dismissed)
+      gems.push(gem);
     if (row.gemDecision === 'confirmed' || row.gemDecision === 'dismissed')
       gemDecisions[row.id] = row.gemDecision;
     if (row.pipelineStage && row.pipelineStage !== 'none')
