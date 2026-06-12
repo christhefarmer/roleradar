@@ -855,10 +855,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .filter((x) => x.on && remote.SOURCE_ADAPTER_IDS[x.name])
       .map((x): RunSource => {
         const id = remote.SOURCE_ADAPTER_IDS[x.name];
-        if (id === 'eluta') {
+        if (remote.AGGREGATE_ADAPTER_IDS.has(id)) {
           return {
             name: remote.ADAPTER_DISPLAY[id],
-            detail: `Sanctioned Canadian aggregate · ${termCount} terms`,
+            detail: `Canadian aggregate feed · ${termCount} terms`,
             count: '…',
             kind: 'auto',
             status: 'pending',

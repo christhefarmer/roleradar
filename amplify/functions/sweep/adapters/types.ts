@@ -8,6 +8,7 @@ export type AdapterId =
   | 'ashby'
   | 'workday'
   | 'eluta'
+  | 'indeed'
   | 'wwr'
   | 'remotive'
   | 'jobbank'

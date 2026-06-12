@@ -12,12 +12,13 @@
 import { ashby } from './adapters/ashby';
 import { eluta } from './adapters/eluta';
 import { greenhouse } from './adapters/greenhouse';
+import { indeed } from './adapters/indeed';
 import { lever } from './adapters/lever';
 import type { NormalizedRole, SourceAdapter, WatchlistEntry } from './adapters/types';
 
-// Adapter registry, priority order: ATS (watchlist) → Eluta → remote-first
-// feeds → LinkedIn (manual paste — no automated fetch, ever).
-const ADAPTERS: SourceAdapter[] = [greenhouse, lever, ashby, eluta];
+// Adapter registry, priority order: ATS (watchlist) → aggregates →
+// LinkedIn (manual paste — no automated fetch, ever).
+const ADAPTERS: SourceAdapter[] = [greenhouse, lever, ashby, eluta, indeed];
 
 interface SweepConfig {
   terms: string[];

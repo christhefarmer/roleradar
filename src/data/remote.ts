@@ -139,8 +139,16 @@ const DEFAULT_SOURCES: SourceDef[] = [
   { name: 'Ashby', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Workday', note: 'ATS JSON · watchlist companies', tag: 'OFF', on: false },
   { name: 'Eluta.ca', note: 'Sanctioned RSS / OpenSearch · Canada', tag: 'ACTIVE', on: true },
+  { name: 'Indeed', note: 'RSS · ca.indeed.com aggregate — best effort', tag: 'ACTIVE', on: true },
   { name: 'LinkedIn', note: 'Manual — paste roles from email alerts', tag: 'MANUAL', on: true },
 ];
+
+/** Stored source lists predate newly shipped adapters — union the catalog in
+ *  (keeping the owner's toggles) so new sources appear for existing accounts. */
+function mergeSourceCatalog(stored: SourceDef[]): SourceDef[] {
+  const have = new Set(stored.map((s) => s.name.toLowerCase()));
+  return [...stored, ...DEFAULT_SOURCES.filter((s) => !have.has(s.name.toLowerCase()))];
+}
 
 /** Adapter ids actually implemented server-side (ARCHITECTURE.md roadmap
  *  grows this list); the UI may show more toggles than are live. */
@@ -149,6 +157,7 @@ export const SOURCE_ADAPTER_IDS: Record<string, string> = {
   Lever: 'lever',
   Ashby: 'ashby',
   'Eluta.ca': 'eluta',
+  Indeed: 'indeed',
 };
 
 /** Display names for the sweep panel, keyed by adapter id. */
@@ -157,7 +166,11 @@ export const ADAPTER_DISPLAY: Record<string, string> = {
   lever: 'Lever',
   ashby: 'Ashby',
   eluta: 'Eluta.ca RSS',
+  indeed: 'Indeed RSS',
 };
+
+/** Aggregate adapters are term-driven (vs the watchlist-driven ATS pulls). */
+export const AGGREGATE_ADAPTER_IDS = new Set(['eluta', 'indeed']);
 
 
 // ---------------------------------------------------------------------------
@@ -561,7 +574,7 @@ export async function loadAccount(): Promise<AccountSnapshot> {
     watchlist,
     watchPaused,
     excluded: (config?.excludedCompanies ?? []).filter((x): x is string => !!x),
-    sources: parseJsonField<SourceDef[]>(config?.activeSources, DEFAULT_SOURCES),
+    sources: mergeSourceCatalog(parseJsonField<SourceDef[]>(config?.activeSources, DEFAULT_SOURCES)),
     autonomy: (config?.autonomy as AccountSnapshot['autonomy']) ?? 'balanced',
     resumeText: profile?.resumeText ?? '',
     linkedinText: profile?.linkedinText ?? '',
