@@ -5,15 +5,10 @@
 
 export type ViewKey = 'radar' | 'gems' | 'recommend' | 'search' | 'pipeline' | 'profile';
 
-export type DimKey =
-  | 'macos'
-  | 'intune'
-  | 'identity'
-  | 'security'
-  | 'build'
-  | 'client'
-  | 'level'
-  | 'eligible';
+/** Fit-dimension key. Dimensions are derived per owner from their parsed
+ *  strengths (plus the universal `level` and `eligible`), so keys are open
+ *  strings rather than a fixed union. */
+export type DimKey = string;
 
 /** Per-dimension fit read: hit / partial / thin / not-applicable / US-blocked. */
 export type DimState = 'hit' | 'partial' | 'thin' | 'na' | 'us';

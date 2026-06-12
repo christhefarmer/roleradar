@@ -139,8 +139,16 @@ const DEFAULT_SOURCES: SourceDef[] = [
   { name: 'Ashby', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Workday', note: 'ATS JSON · watchlist companies', tag: 'OFF', on: false },
   { name: 'Eluta.ca', note: 'Sanctioned RSS / OpenSearch · Canada', tag: 'ACTIVE', on: true },
+  { name: 'Indeed', note: 'RSS · ca.indeed.com aggregate — best effort', tag: 'ACTIVE', on: true },
   { name: 'LinkedIn', note: 'Manual — paste roles from email alerts', tag: 'MANUAL', on: true },
 ];
+
+/** Stored source lists predate newly shipped adapters — union the catalog in
+ *  (keeping the owner's toggles) so new sources appear for existing accounts. */
+function mergeSourceCatalog(stored: SourceDef[]): SourceDef[] {
+  const have = new Set(stored.map((s) => s.name.toLowerCase()));
+  return [...stored, ...DEFAULT_SOURCES.filter((s) => !have.has(s.name.toLowerCase()))];
+}
 
 /** Adapter ids actually implemented server-side (ARCHITECTURE.md roadmap
  *  grows this list); the UI may show more toggles than are live. */
@@ -149,6 +157,7 @@ export const SOURCE_ADAPTER_IDS: Record<string, string> = {
   Lever: 'lever',
   Ashby: 'ashby',
   'Eluta.ca': 'eluta',
+  Indeed: 'indeed',
 };
 
 /** Display names for the sweep panel, keyed by adapter id. */
@@ -157,7 +166,11 @@ export const ADAPTER_DISPLAY: Record<string, string> = {
   lever: 'Lever',
   ashby: 'Ashby',
   eluta: 'Eluta.ca RSS',
+  indeed: 'Indeed RSS',
 };
+
+/** Aggregate adapters are term-driven (vs the watchlist-driven ATS pulls). */
+export const AGGREGATE_ADAPTER_IDS = new Set(['eluta', 'indeed']);
 
 
 // ---------------------------------------------------------------------------
@@ -207,16 +220,8 @@ function daysBetween(a: string | null | undefined, b: Date): number {
   return Math.max(0, Math.floor((b.getTime() - new Date(a).getTime()) / 86_400_000));
 }
 
-const EMPTY_DIMS: Record<DimKey, DimState> = {
-  macos: 'na',
-  intune: 'na',
-  identity: 'na',
-  security: 'na',
-  build: 'na',
-  client: 'na',
-  level: 'na',
-  eligible: 'na',
-};
+// Dimensions are derived per owner from their parsed strengths; missing keys
+// render as 'na' at the view layer, so no fixed empty-dims template exists.
 
 function rowToUiRole(row: RoleRow): Role {
   const fit = parseJsonField<FitJson | null>(row.fit, null);
@@ -253,7 +258,7 @@ function rowToUiRole(row: RoleRow): Role {
     discoveredAt: row.firstSeen ?? undefined,
     score: fit?.score ?? 0,
     verdict,
-    dims: { ...EMPTY_DIMS, ...(fit?.dims ?? {}) },
+    dims: fit?.dims ?? {},
     notes: fit?.notes ?? {},
     chips: fit?.chips ?? [],
     sentence: fit?.sentence ?? 'No fit read yet — run a sweep to score this role.',
@@ -569,7 +574,7 @@ export async function loadAccount(): Promise<AccountSnapshot> {
     watchlist,
     watchPaused,
     excluded: (config?.excludedCompanies ?? []).filter((x): x is string => !!x),
-    sources: parseJsonField<SourceDef[]>(config?.activeSources, DEFAULT_SOURCES),
+    sources: mergeSourceCatalog(parseJsonField<SourceDef[]>(config?.activeSources, DEFAULT_SOURCES)),
     autonomy: (config?.autonomy as AccountSnapshot['autonomy']) ?? 'balanced',
     resumeText: profile?.resumeText ?? '',
     linkedinText: profile?.linkedinText ?? '',
@@ -624,6 +629,8 @@ export interface SearchConfigState {
   excluded: string[];
   sources: SourceDef[];
   autonomy: 'conservative' | 'balanced' | 'wide';
+  /** Parsed strengths — these define the owner's fit dimensions. */
+  strengths: Strength[];
 }
 
 export async function saveSearchConfig(s: SearchConfigState): Promise<void> {
@@ -945,7 +952,21 @@ export async function runSweepRemote(
   }
 
   // AI fit refinement for the strongest new reads — best effort; a Bedrock
-  // hiccup leaves the honest baseline in place.
+  // hiccup leaves the honest baseline in place. Dimensions come from the
+  // owner's parsed strengths, so the breakdown is theirs, not a template.
+  const userDims = [
+    ...cfg.strengths
+      .filter((st) => st.key !== 'level' && st.key !== 'eligible')
+      .slice(0, 6)
+      .map((st) => ({ key: st.key, label: st.label })),
+    { key: 'level', label: 'Level fit' },
+    { key: 'eligible', label: 'Canada eligibility' },
+  ];
+  const userKeys = userDims.map((d) => d.key);
+  // An AI fit is stale when it was scored against a different dimension set
+  // (e.g. the profile was re-parsed) — re-refine those too.
+  const fitIsFresh = (f: FitJson | null) =>
+    f?.source === 'ai' && userKeys.some((k) => k !== 'level' && k !== 'eligible' && k in (f.dims ?? {}));
   if (resumeText.trim()) {
     const refreshed = await listAllRoles();
     const candidates = refreshed
@@ -957,7 +978,7 @@ export async function runSweepRemote(
         const state = parseJsonField<{ state?: EligState }>(r.eligibility, {}).state;
         return state !== 'us' && state !== 'other';
       })
-      .filter((r) => parseJsonField<FitJson | null>(r.fit, null)?.source !== 'ai' && r.rawDescription)
+      .filter((r) => !fitIsFresh(parseJsonField<FitJson | null>(r.fit, null)) && r.rawDescription)
       .sort(
         (a, b) =>
           (parseJsonField<FitJson | null>(b.fit, null)?.score ?? 0) -
@@ -971,16 +992,28 @@ export async function runSweepRemote(
           roleTitle: row.title,
           roleLocation: row.location ?? undefined,
           profile: resumeText,
+          dimensions: JSON.stringify(userDims),
         });
         if (!gen.data) return;
-        const dims = parseJsonField<Record<string, string>>(gen.data.dims, {});
+        const rawDims = parseJsonField<Record<string, string>>(gen.data.dims, {});
+        // Keep only the owner's dimension keys, with valid states.
+        const dims: Record<string, DimState> = {};
+        for (const key of userKeys) {
+          const v = rawDims[key];
+          dims[key] = v === 'hit' || v === 'partial' || v === 'thin' || v === 'us' ? v : 'na';
+        }
+        const rawNotes = parseJsonField<Record<string, string>>(gen.data.notes, {});
+        const notes: Record<string, string> = {};
+        for (const key of userKeys) {
+          if (typeof rawNotes[key] === 'string' && rawNotes[key]) notes[key] = rawNotes[key];
+        }
         const baseline = parseJsonField<FitJson | null>(row.fit, null);
         const fit: FitJson = {
           score: gen.data.score ?? baseline?.score ?? 0,
           verdict: (gen.data.verdict as unknown as VerdictKey) ?? baseline?.verdict ?? 'reach',
           sentence: gen.data.sentence,
-          dims: { ...EMPTY_DIMS, ...(dims as Record<DimKey, DimState>) },
-          notes: {},
+          dims,
+          notes,
           chips: (gen.data.chips ?? [])
             .filter((x): x is string => !!x)
             .slice(0, 4)
@@ -1058,9 +1091,9 @@ function chipToneFor(text: string): ChipTone {
  *  terms carry no per-dimension signal, so dimension reads stay na until the
  *  AI fit refinement fills them; only the cheap heuristics light up here. */
 function baselineFit(wire: ScoredRoleWire, _cfg: SearchConfigState): FitJson {
-  const dims: Record<DimKey, DimState> = { ...EMPTY_DIMS };
-  const body = wire.rawDescription.toLowerCase();
-  if (/react|typescript|aws|amplify|terraform|python/.test(body)) dims.build = 'partial';
+  // Only the universal dimensions have cheap heuristics; the owner's
+  // strength-derived dimensions wait for the AI read.
+  const dims: Record<DimKey, DimState> = {};
   const title = wire.title.toLowerCase();
   const junior = /support specialist|help ?desk|junior|tier ?[12]|technician/.test(title);
   const senior = /senior|staff|lead|principal/.test(title);

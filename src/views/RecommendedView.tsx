@@ -2,8 +2,8 @@
 // mono fit score, 8-segment dimension meter, reason chips and flags; expanding
 // reveals the transparent fit breakdown. A score is never shown without its why.
 
-import { DIMS } from '../data/seed';
 import type { Role } from '../domain/types';
+import { fitDimensions } from '../state/selectors';
 import { useStore } from '../state/store';
 import { EligBadge, filterToggleStyle, formatDiscovered, MONO } from '../ui/primitives';
 import { VERDICTS, chipTone, defNote, eligVm, fillColor, fillFor, meterColor } from '../ui/tones';
@@ -153,6 +153,8 @@ export function RecommendedView() {
 
 function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
   const { state, dispatch } = useStore();
+  // The owner's dimensions — derived from their parsed strengths.
+  const dims = fitDimensions(state);
   const v = VERDICTS[r.verdict];
   const elig = eligVm(r.elig);
   const expanded = !!state.expanded[r.id];
@@ -249,7 +251,7 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
               <span style={{ fontSize: 10, color: '#B8B0A0', fontWeight: 400 }}>/100</span>
             </span>
             <div style={{ display: 'flex', gap: 3, alignItems: 'center' }} title="fit by dimension">
-              {DIMS.map(([k, label]) => (
+              {dims.map(([k, label]) => (
                 <span
                   key={k}
                   title={label}
@@ -375,7 +377,7 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-            {DIMS.map(([k, label]) => (
+            {dims.map(([k, label]) => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap' }}>
                 <span style={{ width: 172, flex: '0 0 auto', fontFamily: MONO, fontSize: 11, color: 'var(--rr-muted)' }}>
                   {label}

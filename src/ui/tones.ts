@@ -18,23 +18,28 @@ export const VERDICTS: Record<VerdictKey, TonePill> = {
   mismatch: { label: 'DOMAIN MISMATCH', color: '#8A4A2C', bg: '#F1E6DF', bd: '#DCC6B8' },
 };
 
-export function meterColor(s: DimState): string {
-  return { hit: '#1E8A4F', partial: '#B07D26', thin: '#D7B49E', na: '#E2DDD2', us: '#B0492B' }[s];
+export function meterColor(s: DimState | undefined): string {
+  return { hit: '#1E8A4F', partial: '#B07D26', thin: '#D7B49E', na: '#E2DDD2', us: '#B0492B' }[
+    s ?? 'na'
+  ];
 }
 
-export function fillFor(s: DimState): string {
-  return { hit: '100%', partial: '55%', thin: '25%', na: '8%', us: '12%' }[s];
+export function fillFor(s: DimState | undefined): string {
+  return { hit: '100%', partial: '55%', thin: '25%', na: '8%', us: '12%' }[s ?? 'na'];
 }
 
-export function fillColor(s: DimState): string {
-  return { hit: '#1E8A4F', partial: '#C39237', thin: '#D7B49E', na: '#D8D3C8', us: '#B0492B' }[s];
+export function fillColor(s: DimState | undefined): string {
+  return { hit: '#1E8A4F', partial: '#C39237', thin: '#D7B49E', na: '#D8D3C8', us: '#B0492B' }[
+    s ?? 'na'
+  ];
 }
 
-export function defNote(s: DimState): string {
+export function defNote(s: DimState | undefined): string {
   if (s === 'hit') return 'Central to this role.';
   if (s === 'partial') return 'Present, not the focus.';
   if (s === 'thin') return 'Lightly referenced.';
   if (s === 'us') return 'Requires US authorization.';
+  if (s === undefined) return 'Not scored yet — the AI fit read fills this in.';
   return 'Not part of this role.';
 }
 
