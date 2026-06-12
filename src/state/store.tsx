@@ -235,10 +235,10 @@ export type Action =
   | { type: 'REMOVE_FROM_PIPE'; id: string }
   | { type: 'MOVE_STAGE'; id: string; dir: 1 | -1 }
   | { type: 'ADD_CO'; entry: WatchEntry }
-  | { type: 'UPDATE_CO'; entry: WatchEntry }
+  | { type: 'SET_CO_BOARDS'; name: string; entries: WatchEntry[] }
+  | { type: 'REMOVE_CO'; name: string; src?: string }
   | { type: 'RANGE_POPULATED'; termGroups: TermGroup[]; companies: string[] }
   | { type: 'TOGGLE_PAUSE_CO'; name: string }
-  | { type: 'REMOVE_CO'; name: string }
   | { type: 'MUTE_CO'; name: string }
   | { type: 'UNMUTE_CO'; name: string }
   | { type: 'TOGGLE_SOURCE'; name: string }
@@ -398,8 +398,12 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, pipeline: { ...state.pipeline, [action.id]: STAGE_ORDER[i] } };
     }
     case 'ADD_CO': {
-      if (state.watchlist.some((w) => w.name.toLowerCase() === action.entry.name.toLowerCase()))
-        return state;
+      // One row per company-board pair — a company can live on several ATSs.
+      const dupe = state.watchlist.some(
+        (w) =>
+          w.name.toLowerCase() === action.entry.name.toLowerCase() && w.src === action.entry.src,
+      );
+      if (dupe) return state;
       return {
         ...state,
         watchlist: [...state.watchlist, action.entry],
@@ -407,14 +411,15 @@ function reducer(state: AppState, action: Action): AppState {
         excluded: state.excluded.filter((n) => n !== action.entry.name),
       };
     }
-    case 'UPDATE_CO':
-      // Board resolution upgrading a watch entry's provider + slug.
-      return {
-        ...state,
-        watchlist: state.watchlist.map((w) =>
-          w.name.toLowerCase() === action.entry.name.toLowerCase() ? { ...w, ...action.entry } : w,
-        ),
-      };
+    case 'SET_CO_BOARDS': {
+      // Board resolution replacing a company's placeholder row(s) with one
+      // row per ATS board found.
+      if (!action.entries.length) return state;
+      const rest = state.watchlist.filter(
+        (w) => w.name.toLowerCase() !== action.name.toLowerCase(),
+      );
+      return { ...state, watchlist: [...rest, ...action.entries] };
+    }
     case 'RANGE_POPULATED': {
       // Parse → Range pipeline. Non-destructive merge: a fresh range (no
       // terms anywhere) adopts the AI groups wholesale; an in-use range keeps
@@ -457,7 +462,13 @@ function reducer(state: AppState, action: Action): AppState {
         watchPaused: { ...state.watchPaused, [action.name]: !state.watchPaused[action.name] },
       };
     case 'REMOVE_CO':
-      return { ...state, watchlist: state.watchlist.filter((w) => w.name !== action.name) };
+      // With a src, remove just that board row; without, the whole company.
+      return {
+        ...state,
+        watchlist: state.watchlist.filter(
+          (w) => w.name !== action.name || (action.src !== undefined && w.src !== action.src),
+        ),
+      };
     case 'MUTE_CO': {
       // Invariant (ARCHITECTURE.md §2): never on the watchlist and excluded at once.
       const watchPaused = { ...state.watchPaused };
@@ -645,7 +656,7 @@ const SEARCH_SYNC = new Set<Action['type']>([
   'ADD_TERM',
   'REMOVE_TERM',
   'ADD_CO',
-  'UPDATE_CO',
+  'SET_CO_BOARDS',
   'RANGE_POPULATED',
   'TOGGLE_PAUSE_CO',
   'REMOVE_CO',
@@ -669,7 +680,7 @@ const PROFILE_SYNC = new Set<Action['type']>([
 
 interface Api {
   /** Probe ATS boards for a company's provider + slug (connected mode). */
-  resolveCompany: (name: string) => Promise<WatchEntry | null>;
+  resolveCompany: (name: string) => Promise<WatchEntry[]>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   confirm: (name: string, email: string, code: string, password: string) => Promise<void>;
@@ -925,11 +936,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const api = useMemo<Api>(
     () => ({
       async resolveCompany(name) {
-        if (!isConnected) return null;
+        if (!isConnected) return [];
         try {
           return await remote.resolveCompanyRemote(name);
         } catch {
-          return null;
+          return [];
         }
       },
       async signIn(email, password) {
@@ -979,14 +990,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             termGroups: outcome.termGroups,
             companies: outcome.sugCos.map((c) => c.name),
           });
-          // Resolve each newly watched company's real ATS board in the
-          // background; the entry's provider tag upgrades as results land.
+          // Resolve each newly watched company's ATS boards in the
+          // background; the placeholder row becomes one row per board found.
           for (const c of outcome.sugCos) {
             if (before.has(c.name.toLowerCase())) continue;
             remote
               .resolveCompanyRemote(c.name)
-              .then((entry) => {
-                if (entry) dispatch({ type: 'UPDATE_CO', entry });
+              .then((entries) => {
+                if (entries.length) dispatch({ type: 'SET_CO_BOARDS', name: c.name, entries });
               })
               .catch(() => undefined);
           }

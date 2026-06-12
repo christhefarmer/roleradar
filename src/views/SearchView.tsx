@@ -41,23 +41,34 @@ export function SearchView() {
       setNewCompany('');
       return;
     }
-    // A plain name: Radar probes the ATS boards server-side for the company's
-    // real provider. No board found → aggregate feeds still cover it (RSS tag).
+    // Plain names (comma-separated for bulk adds): Radar probes every ATS for
+    // each company — one row lands per board found (companies often run more
+    // than one). No board → aggregate feeds still cover it (RSS tag).
+    const names = text
+      .split(',')
+      .map((n) => n.trim())
+      .filter(Boolean);
     setResolving(true);
-    const resolved = await api.resolveCompany(text);
+    for (const name of names) {
+      const boards = await api.resolveCompany(name);
+      const entries = boards.length
+        ? boards
+        : [
+            state.connected
+              ? { name, src: 'RSS', slug: normalizeSlug(name) }
+              : { name, src: 'Greenhouse', slug: normalizeSlug(name) },
+          ];
+      for (const entry of entries) dispatch({ type: 'ADD_CO', entry });
+    }
     setResolving(false);
-    dispatch({
-      type: 'ADD_CO',
-      entry:
-        resolved ??
-        (state.connected
-          ? { name: text, src: 'RSS', slug: normalizeSlug(text) }
-          : { name: text, src: 'Greenhouse', slug: normalizeSlug(text) }),
-    });
     setNewCompany('');
   };
 
-  const watchlist = state.watchlist.filter((w) => !state.excluded.includes(w.name));
+  // Alphabetical, then by provider — long lists stay scannable, and a
+  // company's multiple boards (e.g. SAP on Workable and Greenhouse) group.
+  const watchlist = state.watchlist
+    .filter((w) => !state.excluded.includes(w.name))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.src.localeCompare(b.src));
 
   return (
     <>
@@ -199,11 +210,50 @@ export function SearchView() {
               marginBottom: 18,
             }}
           >
+            <div style={{ display: 'flex', gap: 7, padding: '5px 10px 10px' }}>
+              <input
+                value={newCompany}
+                onChange={(e) => setNewCompany(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void addCompany();
+                }}
+                placeholder="company name, or paste a careers URL (Greenhouse / Lever / Ashby)…"
+                style={{
+                  flex: 1,
+                  border: '1px solid var(--rr-border)',
+                  background: 'var(--rr-surface)',
+                  borderRadius: 7,
+                  padding: '8px 11px',
+                  fontFamily: MONO,
+                  fontSize: 11.5,
+                  color: 'var(--rr-ink)',
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={() => void addCompany()}
+                disabled={resolving}
+                style={{
+                  border: 'none',
+                  cursor: resolving ? 'wait' : 'pointer',
+                  padding: '8px 14px',
+                  borderRadius: 7,
+                  background: '#211E18',
+                  color: 'var(--rr-paper)',
+                  fontFamily: MONO,
+                  fontSize: 11,
+                  flex: '0 0 auto',
+                  opacity: resolving ? 0.6 : 1,
+                }}
+              >
+                {resolving ? '◎ finding board…' : '+ watch'}
+              </button>
+            </div>
             {watchlist.map((c) => {
               const paused = !!state.watchPaused[c.name];
               const tone = SRC_TONE[c.src] ?? SRC_TONE.RSS;
               return (
-                <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 7 }}>
+                <div key={`${c.name}:${c.src}`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 7 }}>
                   <span
                     style={{
                       width: 7,
@@ -257,7 +307,7 @@ export function SearchView() {
                     {paused ? 'resume' : 'pause'}
                   </button>
                   <button
-                    onClick={() => dispatch({ type: 'REMOVE_CO', name: c.name })}
+                    onClick={() => dispatch({ type: 'REMOVE_CO', name: c.name, src: c.src })}
                     title="Remove from watchlist"
                     style={{
                       border: 'none',
@@ -275,45 +325,6 @@ export function SearchView() {
                 </div>
               );
             })}
-            <div style={{ display: 'flex', gap: 7, padding: '8px 10px 5px' }}>
-              <input
-                value={newCompany}
-                onChange={(e) => setNewCompany(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void addCompany();
-                }}
-                placeholder="company name, or paste a careers URL (Greenhouse / Lever / Ashby)…"
-                style={{
-                  flex: 1,
-                  border: '1px solid var(--rr-border)',
-                  background: 'var(--rr-surface)',
-                  borderRadius: 7,
-                  padding: '8px 11px',
-                  fontFamily: MONO,
-                  fontSize: 11.5,
-                  color: 'var(--rr-ink)',
-                  outline: 'none',
-                }}
-              />
-              <button
-                onClick={() => void addCompany()}
-                disabled={resolving}
-                style={{
-                  border: 'none',
-                  cursor: resolving ? 'wait' : 'pointer',
-                  padding: '8px 14px',
-                  borderRadius: 7,
-                  background: '#211E18',
-                  color: 'var(--rr-paper)',
-                  fontFamily: MONO,
-                  fontSize: 11,
-                  flex: '0 0 auto',
-                  opacity: resolving ? 0.6 : 1,
-                }}
-              >
-                {resolving ? '◎ finding board…' : '+ watch'}
-              </button>
-            </div>
           </div>
 
           {state.excluded.length > 0 && (
