@@ -851,6 +851,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       async signOut() {
         await auth.doSignOut();
+        remote.resetAccountCache();
         rawDispatch({ type: 'SIGN_OUT' });
       },
       async parseProfile() {
