@@ -7,16 +7,15 @@ import { MONO } from '../ui/primitives';
 const TITLES: Record<ViewKey, [string, string]> = {
   profile: ['Your profile', 'Résumé & LinkedIn — the source of truth fit is scored against'],
   radar: ['Scouts', 'Radar sends scouts across your sources — they propose, you approve'],
-  recommend: ['Recommended', 'Ranked by fit — every score is explained'],
-  gems: ['Hidden gems', 'Roles your search terms would have missed'],
-  search: ['Search & watchlist', 'Manage terms, weights, companies and sources'],
+  recommend: ['Roles', 'Ranked by fit — every score is explained'],
+  gems: ['Gems', 'Roles your search terms would have missed'],
+  search: ['Range', 'Set the range and scope for your scouts — terms, companies and sources'],
   pipeline: ['Pipeline', 'Every role you are tracking, through to close'],
 };
 
 export function TopBar({ onBackToBot }: { onBackToBot?: () => void }) {
   const { state, startRun } = useStore();
   const [title, sub] = TITLES[state.view];
-  const sm = state.summary;
 
   return (
     <header
@@ -61,16 +60,6 @@ export function TopBar({ onBackToBot }: { onBackToBot?: () => void }) {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, flex: '0 0 auto' }}>
-        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div
-            style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--rr-faint)', letterSpacing: '0.02em' }}
-          >
-            LAST RUN · {sm.when}
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--rr-muted)' }}>
-            {sm.kept} roles · {sm.phantoms} phantoms · {sm.gems} gems
-          </div>
-        </div>
         <button
           onClick={startRun}
           className={state.running ? undefined : 'rr-btn-primary'}

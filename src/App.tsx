@@ -21,8 +21,10 @@ import { SearchView } from './views/SearchView';
 const PATH_TO_VIEW: Record<string, ViewKey> = {
   '/scout': 'radar',
   '/scouts': 'radar',
+  '/roles': 'recommend',
   '/recommended': 'recommend',
   '/gems': 'gems',
+  '/range': 'search',
   '/search': 'search',
   '/pipeline': 'pipeline',
   '/profile': 'profile',
