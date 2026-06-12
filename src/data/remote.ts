@@ -101,14 +101,37 @@ export interface ProfileFacts {
 let profileId: string | null = null;
 let searchConfigId: string | null = null;
 
-/** Default config for a brand-new (empty) account: the four canonical term
- *  groups, aggregate feeds on, nothing watched or excluded yet. */
+/** The three generic priority tiers every range uses: High (3) / Med (2) /
+ *  Low (1). Tier weight drives sweep scoring — High terms count most. */
 const DEFAULT_GROUPS: TermGroup[] = [
-  { name: 'Apple / endpoint', weight: 3, terms: [] },
-  { name: 'Cross-platform / EUC', weight: 2, terms: [] },
-  { name: 'Identity & security', weight: 2, terms: [] },
-  { name: 'Client-facing', weight: 2, terms: [] },
+  { name: 'High', weight: 3, terms: [] },
+  { name: 'Med', weight: 2, terms: [] },
+  { name: 'Low', weight: 1, terms: [] },
 ];
+
+/** Fold any term groups (legacy named ones, AI output) into the three tiers
+ *  by weight; a term lands in its highest tier only. Nothing is dropped. */
+export function foldIntoTiers(groups: TermGroup[]): TermGroup[] {
+  const buckets: Record<number, string[]> = { 3: [], 2: [], 1: [] };
+  const seen = new Set<string>();
+  for (const tier of [3, 2, 1]) {
+    for (const g of groups) {
+      const w = g.weight >= 3 ? 3 : g.weight <= 1 ? 1 : 2;
+      if (w !== tier) continue;
+      for (const t of g.terms) {
+        const k = t.toLowerCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        buckets[tier].push(t);
+      }
+    }
+  }
+  return [
+    { name: 'High', weight: 3, terms: buckets[3] },
+    { name: 'Med', weight: 2, terms: buckets[2] },
+    { name: 'Low', weight: 1, terms: buckets[1] },
+  ];
+}
 
 const DEFAULT_SOURCES: SourceDef[] = [
   { name: 'Greenhouse', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
@@ -136,7 +159,6 @@ export const ADAPTER_DISPLAY: Record<string, string> = {
   eluta: 'Eluta.ca RSS',
 };
 
-const GROUP_DIMS: DimKey[][] = [['macos'], ['intune'], ['identity', 'security'], ['client']];
 
 // ---------------------------------------------------------------------------
 // Mapping: backend Role row → UI Role / Gem
@@ -533,7 +555,11 @@ export async function loadAccount(): Promise<AccountSnapshot> {
       }
     : { fetched: 0, kept: 0, phantoms: 0, gems: 0, when: 'never' };
 
-  const termGroups = parseJsonField<TermGroup[]>(config?.termGroups, DEFAULT_GROUPS);
+  // Fold whatever is stored (legacy named groups included) into the three
+  // High/Med/Low tiers — migration happens transparently on load, no terms lost.
+  const termGroups = foldIntoTiers(
+    parseJsonField<TermGroup[]>(config?.termGroups, DEFAULT_GROUPS),
+  );
   const watchlist = parseJsonField<WatchEntry[]>(config?.watchlist, []);
   const watchPaused: Record<string, boolean> = {};
   for (const name of config?.pausedCompanies ?? []) if (name) watchPaused[name] = true;
@@ -724,7 +750,7 @@ export async function parseProfileRemote(
     );
     return {
       strengths,
-      termGroups: sanitizeTermGroups(data.termGroups),
+      termGroups: foldIntoTiers(sanitizeTermGroups(data.termGroups)),
       sugTerms: (data.suggestedTerms ?? [])
         .filter((t): t is string => !!t)
         .map((label) => ({ label, added: false })),
@@ -768,7 +794,7 @@ function heuristicParse(resumeText: string): ParseOutcome {
   const canada = /canada|canadian/.test(text);
   return {
     strengths,
-    termGroups: termGroups.slice(0, 5),
+    termGroups: foldIntoTiers(termGroups),
     sugTerms: sugTerms.slice(0, 8),
     sugCos: [],
     facts: canada ? { canadaEligible: true } : null,
@@ -822,6 +848,9 @@ export async function runSweepRemote(
     .filter((s) => s.on && SOURCE_ADAPTER_IDS[s.name])
     .map((s) => SOURCE_ADAPTER_IDS[s.name]);
   const terms = cfg.termGroups.flatMap((g) => g.terms);
+  // Tier weights drive scoring: High terms count most.
+  const weights: Record<string, number> = {};
+  for (const g of cfg.termGroups) for (const t of g.terms) weights[t.toLowerCase()] = g.weight;
   const watchlist = cfg.watchlist
     .filter((w) => !cfg.watchPaused[w.name] && !cfg.excluded.includes(w.name))
     .map((w) => ({
@@ -833,6 +862,7 @@ export async function runSweepRemote(
   const res = await c.mutations.startSweep({
     config: JSON.stringify({
       terms,
+      weights,
       watchlist,
       excludedCompanies: cfg.excluded,
       activeSources: activeIds,
@@ -1024,16 +1054,11 @@ function chipToneFor(text: string): ChipTone {
   return 'good';
 }
 
-/** Deterministic keyword fit — honest about being a baseline. The dims light
- *  up from which term groups matched; the AI read replaces this when it runs. */
-function baselineFit(wire: ScoredRoleWire, cfg: SearchConfigState): FitJson {
+/** Deterministic keyword fit — honest about being a baseline. The tiered
+ *  terms carry no per-dimension signal, so dimension reads stay na until the
+ *  AI fit refinement fills them; only the cheap heuristics light up here. */
+function baselineFit(wire: ScoredRoleWire, _cfg: SearchConfigState): FitJson {
   const dims: Record<DimKey, DimState> = { ...EMPTY_DIMS };
-  const matched = new Set(wire.matchedTerms.map((t) => t.toLowerCase()));
-  cfg.termGroups.forEach((group, gi) => {
-    const hit = group.terms.some((t) => matched.has(t.toLowerCase()));
-    if (!hit) return;
-    for (const dim of GROUP_DIMS[gi] ?? []) dims[dim] = wire.titleHit ? 'hit' : 'partial';
-  });
   const body = wire.rawDescription.toLowerCase();
   if (/react|typescript|aws|amplify|terraform|python/.test(body)) dims.build = 'partial';
   const title = wire.title.toLowerCase();

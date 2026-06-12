@@ -21,6 +21,8 @@ const ADAPTERS: SourceAdapter[] = [greenhouse, lever, ashby, eluta];
 
 interface SweepConfig {
   terms: string[];
+  /** Tier weight per lowercased term (High 3 / Med 2 / Low 1); default 2. */
+  weights: Record<string, number>;
   watchlist: WatchlistEntry[];
   excludedCompanies: string[];
   /** Adapter ids toggled on in Search → Active sources. */
@@ -51,13 +53,14 @@ export interface SweepResult {
   summary: string;
 }
 
-/** Baseline content score: weighted term hits across title + description.
+/** Baseline content score: tier-weighted term hits across title + description.
  *  A generic title with a description full of the owner's stack outranks a
  *  title-only hit — that asymmetry is what surfaces hidden gems. The AI
  *  `generateFit` route refines the per-dimension read for surfaced roles. */
 function scoreRole(
   role: NormalizedRole,
   terms: string[],
+  weights: Record<string, number>,
 ): { score: number; matched: string[]; titleHit: boolean } {
   const title = role.title.toLowerCase();
   const body = role.rawDescription.toLowerCase();
@@ -67,16 +70,17 @@ function scoreRole(
   for (const term of terms) {
     const t = term.toLowerCase();
     if (!t) continue;
+    const w = weights[t] ?? 2;
     if (title.includes(t)) {
-      score += 12;
+      score += 6 * w;
       titleHit = true;
       matched.push(term);
     } else if (body.includes(t)) {
-      score += 7;
+      score += 3.5 * w;
       matched.push(term);
     }
   }
-  return { score: Math.min(100, score), matched, titleHit };
+  return { score: Math.min(100, Math.round(score)), matched, titleHit };
 }
 
 export const handler = async (event: SweepEvent): Promise<string> => {
@@ -92,6 +96,7 @@ export const handler = async (event: SweepEvent): Promise<string> => {
   }
   const config: SweepConfig = {
     terms: [],
+    weights: {},
     watchlist: [],
     excludedCompanies: [],
     activeSources: ['greenhouse', 'lever', 'ashby', 'eluta'],
@@ -128,7 +133,7 @@ export const handler = async (event: SweepEvent): Promise<string> => {
   const watchSet = new Set(config.watchlist.map((w) => w.company.toLowerCase()));
   const roles: ScoredRole[] = keptRoles
     .map((role) => {
-      const { score, matched, titleHit } = scoreRole(role, config.terms);
+      const { score, matched, titleHit } = scoreRole(role, config.terms, config.weights ?? {});
       const gem =
         !titleHit && score >= 40
           ? { subtype: 'content' as const, matches: matched }
