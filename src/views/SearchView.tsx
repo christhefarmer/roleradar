@@ -12,7 +12,9 @@ const SRC_TONE: Record<string, [bg: string, color: string, bd: string]> = {
   Lever: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
   Ashby: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
   Workable: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
-  Workday: ['#F4ECDA', '#8A5E14', '#E3D2A8'],
+  Workday: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
+  SmartRecruiters: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
+  BambooHR: ['#E7F1E8', '#0F6B3B', '#C5DDCB'],
   RSS: ['#EFEBE1', '#6E685D', '#E0DBD0'],
 };
 

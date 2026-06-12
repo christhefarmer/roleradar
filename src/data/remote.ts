@@ -138,7 +138,9 @@ const DEFAULT_SOURCES: SourceDef[] = [
   { name: 'Lever', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Ashby', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Workable', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
-  { name: 'Workday', note: 'ATS JSON · watchlist companies', tag: 'OFF', on: false },
+  { name: 'Workday', note: 'ATS JSON · paste a myworkdayjobs.com careers URL', tag: 'ACTIVE', on: true },
+  { name: 'SmartRecruiters', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
+  { name: 'BambooHR', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Eluta.ca', note: 'Sanctioned RSS / OpenSearch · Canada', tag: 'ACTIVE', on: true },
   { name: 'LinkedIn', note: 'Manual — paste roles from email alerts', tag: 'MANUAL', on: true },
 ];
@@ -163,6 +165,9 @@ export const SOURCE_ADAPTER_IDS: Record<string, string> = {
   Lever: 'lever',
   Ashby: 'ashby',
   Workable: 'workable',
+  Workday: 'workday',
+  SmartRecruiters: 'smartrecruiters',
+  BambooHR: 'bamboohr',
   'Eluta.ca': 'eluta',
 };
 
@@ -172,6 +177,9 @@ export const ADAPTER_DISPLAY: Record<string, string> = {
   lever: 'Lever',
   ashby: 'Ashby',
   workable: 'Workable',
+  workday: 'Workday',
+  smartrecruiters: 'SmartRecruiters',
+  bamboohr: 'BambooHR',
   eluta: 'Eluta.ca RSS',
 };
 
@@ -844,6 +852,8 @@ const PROVIDER_SRC: Record<string, string> = {
   lever: 'Lever',
   ashby: 'Ashby',
   workable: 'Workable',
+  smartrecruiters: 'SmartRecruiters',
+  bamboohr: 'BambooHR',
 };
 
 /** Probe the ATS boards (server-side) for a company's slug. Returns a fully

@@ -10,15 +10,27 @@
 // async job writing per-source progress to SweepRun behind a subscription.
 
 import { ashby } from './adapters/ashby';
+import { bamboohr } from './adapters/bamboohr';
 import { eluta } from './adapters/eluta';
 import { greenhouse } from './adapters/greenhouse';
 import { lever } from './adapters/lever';
+import { smartrecruiters } from './adapters/smartrecruiters';
 import { workable } from './adapters/workable';
+import { workday } from './adapters/workday';
 import type { NormalizedRole, SourceAdapter, WatchlistEntry } from './adapters/types';
 
 // Adapter registry, priority order: ATS (watchlist) → aggregates →
 // LinkedIn (manual paste — no automated fetch, ever).
-const ADAPTERS: SourceAdapter[] = [greenhouse, lever, ashby, workable, eluta];
+const ADAPTERS: SourceAdapter[] = [
+  greenhouse,
+  lever,
+  ashby,
+  workable,
+  workday,
+  smartrecruiters,
+  bamboohr,
+  eluta,
+];
 
 interface SweepConfig {
   terms: string[];

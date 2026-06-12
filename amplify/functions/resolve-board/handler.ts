@@ -8,7 +8,7 @@ interface ResolveEvent {
 
 interface ResolveResult {
   found: boolean;
-  provider?: 'greenhouse' | 'lever' | 'ashby' | 'workable';
+  provider?: 'greenhouse' | 'lever' | 'ashby' | 'workable' | 'smartrecruiters' | 'bamboohr';
   slug?: string;
 }
 
@@ -33,7 +33,7 @@ async function ok(url: string): Promise<boolean> {
 }
 
 const PROBES: {
-  provider: 'greenhouse' | 'lever' | 'ashby' | 'workable';
+  provider: 'greenhouse' | 'lever' | 'ashby' | 'workable' | 'smartrecruiters' | 'bamboohr';
   url: (slug: string) => string;
 }[] = [
   {
@@ -51,6 +51,14 @@ const PROBES: {
   {
     provider: 'workable',
     url: (slug) => `https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(slug)}`,
+  },
+  {
+    provider: 'smartrecruiters',
+    url: (slug) => `https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(slug)}/postings?limit=1`,
+  },
+  {
+    provider: 'bamboohr',
+    url: (slug) => `https://${encodeURIComponent(slug)}.bamboohr.com/careers/list`,
   },
 ];
 
