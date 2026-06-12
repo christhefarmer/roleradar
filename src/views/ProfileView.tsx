@@ -36,7 +36,38 @@ export function ProfileView() {
   return (
     <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <div style={{ flex: '0 0 296px', maxWidth: 296, minWidth: 280 }}>
-        <SectionLabel style={{ marginBottom: 10 }}>SOURCE OF TRUTH — YOUR RÉSUMÉ</SectionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+          <SectionLabel style={{ flex: 1, marginBottom: 0 }}>
+            SOURCE OF TRUTH — YOUR RÉSUMÉ
+          </SectionLabel>
+          <label
+            style={{
+              border: '1px solid var(--rr-border)',
+              background: 'var(--rr-surface)',
+              color: 'var(--rr-muted)',
+              cursor: 'pointer',
+              padding: '3px 9px',
+              borderRadius: 6,
+              fontFamily: MONO,
+              fontSize: 10,
+              flex: '0 0 auto',
+            }}
+            title="Upload a plain-text or markdown résumé (PDF support is on the roadmap)"
+          >
+            ⬆ upload .txt
+            <input
+              type="file"
+              accept=".txt,.md,.text,text/plain,text/markdown"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                void file.text().then((text) => dispatch({ type: 'SET_RESUME', text }));
+                e.target.value = '';
+              }}
+            />
+          </label>
+        </div>
         <textarea
           value={state.resumeText}
           onChange={(e) => dispatch({ type: 'SET_RESUME', text: e.target.value })}
@@ -83,6 +114,28 @@ export function ProfileView() {
       </div>
 
       <div style={{ flex: 1, minWidth: 280 }}>
+        {state.parseError && (
+          <div
+            style={{
+              display: 'flex',
+              gap: 9,
+              alignItems: 'flex-start',
+              background: 'var(--rr-caution-tint)',
+              border: '1px solid #E3D2A8',
+              borderRadius: 9,
+              padding: '11px 14px',
+              marginBottom: 12,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 600, color: 'var(--rr-caution-strong)', letterSpacing: '0.04em', flex: '0 0 auto' }}>
+              ⚠ AI PARSE UNAVAILABLE
+            </span>
+            <span style={{ fontSize: 12.5, color: '#7A6A3E', lineHeight: 1.5 }}>
+              {state.parseError} — showing the keyword fallback instead. Most common cause: Bedrock
+              model access for the configured Claude models is not enabled in the app’s region.
+            </span>
+          </div>
+        )}
         {state.parsed ? (
           <>
             <div

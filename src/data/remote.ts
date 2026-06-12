@@ -706,6 +706,9 @@ export interface ParseOutcome {
   sugTerms: SuggestedTerm[];
   sugCos: SuggestedCompany[];
   facts: ProfileFacts | null;
+  /** Set when the AI parse failed and the keyword fallback was used —
+   *  surfaced in the UI, never swallowed. */
+  aiError?: string;
 }
 
 /** Clamp AI-proposed term groups into shape: ≤5 groups, ≤8 terms each,
@@ -778,10 +781,15 @@ export async function parseProfileRemote(
       sugCos: parseJsonField<SuggestedCompany[]>(data.suggestedCompanies, []),
       facts: parseJsonField<ProfileFacts | null>(data.facts, null),
     };
-  } catch {
+  } catch (e) {
     // Bedrock unavailable (e.g. model access not yet enabled) — fall back to
-    // a transparent keyword pass so the flow still works end to end.
-    return heuristicParse(resumeText);
+    // a transparent keyword pass so the flow still works end to end, and
+    // carry the reason so the UI can say why.
+    console.error('parseProfile', e);
+    return {
+      ...heuristicParse(resumeText),
+      aiError: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
