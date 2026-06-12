@@ -16,6 +16,7 @@ export type AdapterId =
   | 'jobbank'
   | 'adzuna'
   | 'hn'
+  | 'linkedin-apify'
   | 'linkedin-manual';
 
 export type AdapterKind = 'ats-json' | 'rss' | 'manual';

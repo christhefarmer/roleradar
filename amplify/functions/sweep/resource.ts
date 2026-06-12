@@ -1,4 +1,4 @@
-import { defineFunction } from '@aws-amplify/backend';
+import { defineFunction, secret } from '@aws-amplify/backend';
 
 /**
  * The Scout pipeline — one Lambda run per sweep:
@@ -14,4 +14,9 @@ export const sweep = defineFunction({
   // resolvers at 30s, so fail fast rather than burn invisible time.
   timeoutSeconds: 30,
   memoryMB: 512,
+  environment: {
+    // Apify API token (Amplify secret `apify`) — powers the LinkedIn
+    // public-listings adapter. Optional: without it the adapter skips.
+    APIFY_TOKEN: secret('apify'),
+  },
 });
