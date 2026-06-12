@@ -759,9 +759,19 @@ export async function parseProfileRemote(
   linkedinText: string,
 ): Promise<ParseOutcome> {
   try {
-    const res = await client().generations.parseProfile({ resumeText, linkedinText });
-    const data = res.data;
-    if (!data) throw new Error(res.errors?.[0]?.message ?? 'empty parse result');
+    const res = await client().mutations.aiInvoke({
+      task: 'parseProfile',
+      payload: JSON.stringify({ resumeText, linkedinText }),
+    });
+    if (res.errors?.length) throw new Error(res.errors[0].message);
+    const data = parseJsonField<{
+      strengths?: unknown;
+      termGroups?: unknown;
+      suggestedTerms?: (string | null)[];
+      suggestedCompanies?: unknown;
+      facts?: unknown;
+    } | null>(res.data, null);
+    if (!data) throw new Error('empty parse result');
     // Strength keys become the fit dimension keys — slugify and dedupe so the
     // AI's naming can't produce colliding or unusable keys.
     const slug = (s: string) =>
@@ -1031,34 +1041,49 @@ export async function runSweepRemote(
       .slice(0, 6);
     await Promise.allSettled(
       candidates.map(async (row) => {
-        const gen = await c.generations.generateFit({
-          roleDescription: row.rawDescription ?? '',
-          roleTitle: row.title,
-          roleLocation: row.location ?? undefined,
-          profile: resumeText,
-          dimensions: JSON.stringify(userDims),
+        const res = await c.mutations.aiInvoke({
+          task: 'generateFit',
+          payload: JSON.stringify({
+            roleDescription: row.rawDescription ?? '',
+            roleTitle: row.title,
+            roleLocation: row.location ?? '',
+            profile: resumeText,
+            dimensions: userDims,
+          }),
         });
-        if (!gen.data) return;
-        const rawDims = parseJsonField<Record<string, string>>(gen.data.dims, {});
+        const gen = parseJsonField<{
+          score?: number;
+          verdict?: string;
+          sentence?: string;
+          dims?: Record<string, string>;
+          notes?: Record<string, string>;
+          chips?: (string | null)[];
+        } | null>(res.data, null);
+        if (!gen) return;
+        const rawDims = gen.dims ?? {};
         // Keep only the owner's dimension keys, with valid states.
         const dims: Record<string, DimState> = {};
         for (const key of userKeys) {
           const v = rawDims[key];
           dims[key] = v === 'hit' || v === 'partial' || v === 'thin' || v === 'us' ? v : 'na';
         }
-        const rawNotes = parseJsonField<Record<string, string>>(gen.data.notes, {});
+        const rawNotes = gen.notes ?? {};
         const notes: Record<string, string> = {};
         for (const key of userKeys) {
           if (typeof rawNotes[key] === 'string' && rawNotes[key]) notes[key] = rawNotes[key];
         }
         const baseline = parseJsonField<FitJson | null>(row.fit, null);
+        const verdict =
+          gen.verdict === 'match' || gen.verdict === 'reach' || gen.verdict === 'below' || gen.verdict === 'mismatch'
+            ? (gen.verdict as VerdictKey)
+            : (baseline?.verdict ?? 'reach');
         const fit: FitJson = {
-          score: gen.data.score ?? baseline?.score ?? 0,
-          verdict: (gen.data.verdict as unknown as VerdictKey) ?? baseline?.verdict ?? 'reach',
-          sentence: gen.data.sentence,
+          score: typeof gen.score === 'number' ? gen.score : (baseline?.score ?? 0),
+          verdict,
+          sentence: gen.sentence ?? baseline?.sentence ?? '',
           dims,
           notes,
-          chips: (gen.data.chips ?? [])
+          chips: (gen.chips ?? [])
             .filter((x): x is string => !!x)
             .slice(0, 4)
             .map((text) => [text, chipToneFor(text)] as [string, ChipTone]),
