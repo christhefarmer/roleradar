@@ -93,6 +93,8 @@ export interface AppState {
   linkedinText: string;
   parsed: boolean;
   parsing: boolean;
+  /** Why the last AI parse fell back to keywords (null = AI parse ok). */
+  parseError: string | null;
   weights: Record<string, number>;
   strengths: Strength[];
   sugTerms: SuggestedTerm[];
@@ -135,6 +137,7 @@ function createInitialState(connected: boolean): AppState {
     watchPaused: {},
     gemDecisions: {},
     parsing: false,
+    parseError: null,
     weights: {},
     profileTermsAdded: {},
     profileCosAdded: {},
@@ -521,6 +524,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         parsed: true,
         parsing: false,
+        parseError: action.outcome.aiError ?? null,
         strengths: action.outcome.strengths,
         sugTerms: action.outcome.sugTerms,
         sugCos: action.outcome.sugCos,
