@@ -137,17 +137,23 @@ const DEFAULT_SOURCES: SourceDef[] = [
   { name: 'Greenhouse', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Lever', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Ashby', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
+  { name: 'Workable', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Workday', note: 'ATS JSON · watchlist companies', tag: 'OFF', on: false },
   { name: 'Eluta.ca', note: 'Sanctioned RSS / OpenSearch · Canada', tag: 'ACTIVE', on: true },
-  { name: 'Indeed', note: 'RSS · ca.indeed.com aggregate — best effort', tag: 'ACTIVE', on: true },
   { name: 'LinkedIn', note: 'Manual — paste roles from email alerts', tag: 'MANUAL', on: true },
 ];
 
+/** Sources that shipped and were retired (e.g. Indeed RSS — bot-walled from
+ *  Lambda) — dropped from stored lists on load. */
+const RETIRED_SOURCES = new Set(['indeed']);
+
 /** Stored source lists predate newly shipped adapters — union the catalog in
- *  (keeping the owner's toggles) so new sources appear for existing accounts. */
+ *  (keeping the owner's toggles) and drop retired ones, so the Range list
+ *  tracks the live adapter set for existing accounts. */
 function mergeSourceCatalog(stored: SourceDef[]): SourceDef[] {
-  const have = new Set(stored.map((s) => s.name.toLowerCase()));
-  return [...stored, ...DEFAULT_SOURCES.filter((s) => !have.has(s.name.toLowerCase()))];
+  const kept = stored.filter((s) => !RETIRED_SOURCES.has(s.name.toLowerCase()));
+  const have = new Set(kept.map((s) => s.name.toLowerCase()));
+  return [...kept, ...DEFAULT_SOURCES.filter((s) => !have.has(s.name.toLowerCase()))];
 }
 
 /** Adapter ids actually implemented server-side (ARCHITECTURE.md roadmap
@@ -156,8 +162,8 @@ export const SOURCE_ADAPTER_IDS: Record<string, string> = {
   Greenhouse: 'greenhouse',
   Lever: 'lever',
   Ashby: 'ashby',
+  Workable: 'workable',
   'Eluta.ca': 'eluta',
-  Indeed: 'indeed',
 };
 
 /** Display names for the sweep panel, keyed by adapter id. */
@@ -165,12 +171,12 @@ export const ADAPTER_DISPLAY: Record<string, string> = {
   greenhouse: 'Greenhouse',
   lever: 'Lever',
   ashby: 'Ashby',
+  workable: 'Workable',
   eluta: 'Eluta.ca RSS',
-  indeed: 'Indeed RSS',
 };
 
 /** Aggregate adapters are term-driven (vs the watchlist-driven ATS pulls). */
-export const AGGREGATE_ADAPTER_IDS = new Set(['eluta', 'indeed']);
+export const AGGREGATE_ADAPTER_IDS = new Set(['eluta']);
 
 
 // ---------------------------------------------------------------------------
@@ -837,6 +843,7 @@ const PROVIDER_SRC: Record<string, string> = {
   greenhouse: 'Greenhouse',
   lever: 'Lever',
   ashby: 'Ashby',
+  workable: 'Workable',
 };
 
 /** Probe the ATS boards (server-side) for a company's slug. Returns a fully

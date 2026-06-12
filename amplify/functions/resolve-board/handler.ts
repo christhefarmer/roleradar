@@ -8,7 +8,7 @@ interface ResolveEvent {
 
 interface ResolveResult {
   found: boolean;
-  provider?: 'greenhouse' | 'lever' | 'ashby';
+  provider?: 'greenhouse' | 'lever' | 'ashby' | 'workable';
   slug?: string;
 }
 
@@ -32,7 +32,10 @@ async function ok(url: string): Promise<boolean> {
   }
 }
 
-const PROBES: { provider: 'greenhouse' | 'lever' | 'ashby'; url: (slug: string) => string }[] = [
+const PROBES: {
+  provider: 'greenhouse' | 'lever' | 'ashby' | 'workable';
+  url: (slug: string) => string;
+}[] = [
   {
     provider: 'greenhouse',
     url: (slug) => `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(slug)}/jobs`,
@@ -44,6 +47,10 @@ const PROBES: { provider: 'greenhouse' | 'lever' | 'ashby'; url: (slug: string) 
   {
     provider: 'ashby',
     url: (slug) => `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(slug)}`,
+  },
+  {
+    provider: 'workable',
+    url: (slug) => `https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(slug)}`,
   },
 ];
 
