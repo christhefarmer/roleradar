@@ -281,51 +281,192 @@ function rowToUiGem(row: RoleRow): Gem | null {
 // ---------------------------------------------------------------------------
 // Account bootstrap + hydration
 
-async function listAllRoles(): Promise<RoleRow[]> {
-  const rows: RoleRow[] = [];
+/** Exhaustive paginated list — never trust a single limited page. With
+ *  owner-scoped tables a limited list can return an empty page even when the
+ *  owner's rows exist, which must never be mistaken for "no data". */
+async function listAllPages<T>(
+  fetchPage: (opts: {
+    limit: number;
+    nextToken?: string | null;
+  }) => Promise<{ data?: (T | null)[] | null; nextToken?: string | null; errors?: unknown[] }>,
+): Promise<{ rows: T[]; hadErrors: boolean }> {
+  const rows: T[] = [];
+  let hadErrors = false;
   let nextToken: string | null | undefined;
   do {
-    const res = await client().models.Role.list({ limit: 500, nextToken });
-    rows.push(...((res.data ?? []) as unknown as RoleRow[]));
+    const res = await fetchPage({ limit: 500, nextToken });
+    rows.push(...((res.data ?? []).filter(Boolean) as T[]));
+    if (res.errors?.length) hadErrors = true;
     nextToken = res.nextToken;
   } while (nextToken);
+  return { rows, hadErrors };
+}
+
+async function listAllRoles(): Promise<RoleRow[]> {
+  const { rows } = await listAllPages<RoleRow>(
+    (o) => client().models.Role.list(o) as never,
+  );
   return rows;
+}
+
+interface ProfileRowLite {
+  id: string;
+  resumeText?: string | null;
+  linkedinText?: string | null;
+  strengths?: unknown;
+  facts?: unknown;
+  updatedAt?: string;
+}
+
+interface ConfigRowLite {
+  id: string;
+  termGroups?: unknown;
+  watchlist?: unknown;
+  pausedCompanies?: (string | null)[] | null;
+  excludedCompanies?: (string | null)[] | null;
+  activeSources?: unknown;
+  autonomy?: string | null;
+  updatedAt?: string;
+}
+
+/** How much owner data a config row carries — used to always bind to the
+ *  populated row when duplicates exist. */
+function configContentScore(row: ConfigRowLite): number {
+  const groups = parseJsonField<TermGroup[]>(row.termGroups, []);
+  const watchlist = parseJsonField<WatchEntry[]>(row.watchlist, []);
+  return (
+    groups.reduce((n, g) => n + (g.terms?.length ?? 0), 0) +
+    watchlist.length +
+    (row.excludedCompanies?.length ?? 0)
+  );
+}
+
+function profileContentScore(row: ProfileRowLite): number {
+  const strengthsRaw = parseJsonField<{ strengths?: unknown[] }>(row.strengths, {});
+  return (row.resumeText?.length ?? 0) + (strengthsRaw.strengths?.length ?? 0);
+}
+
+/** Most content wins; ties go to the most recently updated row. */
+function pickBest<T extends { updatedAt?: string }>(rows: T[], score: (r: T) => number): T {
+  return rows.reduce((best, row) => {
+    const a = score(row);
+    const b = score(best);
+    if (a > b) return row;
+    if (a === b && (row.updatedAt ?? '') > (best.updatedAt ?? '')) return row;
+    return best;
+  });
+}
+
+/** Single-flight bootstrap of the two singleton aggregates. Guarantees:
+ *  (1) concurrent loads (session restore racing a sign-in, a sweep's
+ *  rehydration) share one bootstrap and can't double-create; (2) creation
+ *  happens only on a clean, complete, empty read — an errored read throws
+ *  instead of "starting fresh"; (3) with duplicate rows, the content-bearing
+ *  one always wins and empty strays are cleaned up, so owner data can never
+ *  be shadowed by an accidental empty twin. */
+let singletons: Promise<{ profile: ProfileRowLite; config: ConfigRowLite }> | null = null;
+
+function ensureSingletons() {
+  if (!singletons) {
+    singletons = (async () => {
+      const c = client();
+      const [profiles, configs] = await Promise.all([
+        listAllPages<ProfileRowLite>((o) => c.models.Profile.list(o) as never),
+        listAllPages<ConfigRowLite>((o) => c.models.SearchConfig.list(o) as never),
+      ]);
+      if (profiles.hadErrors && profiles.rows.length === 0)
+        throw new Error('Profile read failed — refusing to create a fresh one over existing data');
+      if (configs.hadErrors && configs.rows.length === 0)
+        throw new Error('SearchConfig read failed — refusing to create a fresh one over existing data');
+
+      let profile: ProfileRowLite | null = profiles.rows.length
+        ? pickBest(profiles.rows, profileContentScore)
+        : null;
+      if (!profile) {
+        profile = (await c.models.Profile.create({ resumeText: '', linkedinText: '' }))
+          .data as ProfileRowLite | null;
+      }
+
+      let config: ConfigRowLite | null = configs.rows.length
+        ? pickBest(configs.rows, configContentScore)
+        : null;
+      if (!config) {
+        config = (
+          await c.models.SearchConfig.create({
+            termGroups: JSON.stringify(DEFAULT_GROUPS),
+            watchlist: JSON.stringify([]),
+            pausedCompanies: [],
+            excludedCompanies: [],
+            activeSources: JSON.stringify(DEFAULT_SOURCES),
+            autonomy: 'balanced',
+          })
+        ).data as ConfigRowLite | null;
+      }
+      if (!profile || !config) throw new Error('Could not bootstrap the account records');
+
+      // Clean up *empty* duplicates only — never a row carrying owner data.
+      for (const row of profiles.rows) {
+        if (row.id !== profile.id && profileContentScore(row) === 0) {
+          c.models.Profile.delete({ id: row.id }).catch(() => undefined);
+        }
+      }
+      for (const row of configs.rows) {
+        if (row.id !== config.id && configContentScore(row) === 0) {
+          c.models.SearchConfig.delete({ id: row.id }).catch(() => undefined);
+        }
+      }
+      if (profiles.rows.length > 1 || configs.rows.length > 1) {
+        console.warn(
+          `account singletons deduped: ${profiles.rows.length} profile row(s), ${configs.rows.length} config row(s)`,
+        );
+      }
+
+      profileId = profile.id;
+      searchConfigId = config.id;
+      return { profile, config };
+    })().catch((e) => {
+      singletons = null; // allow retry on the next load
+      throw e;
+    });
+  }
+  return singletons;
+}
+
+/** Forget cached account bindings (sign-out / account switch). */
+export function resetAccountCache(): void {
+  singletons = null;
+  profileId = null;
+  searchConfigId = null;
 }
 
 /** Load the owner's account; create the empty Profile + default SearchConfig
  *  on first sign-in so a brand-new user lands in a clean, populatable state. */
 export async function loadAccount(): Promise<AccountSnapshot> {
   const c = client();
+  const { profile, config } = await ensureSingletons();
 
-  const [profileRes, configRes] = await Promise.all([
-    c.models.Profile.list({ limit: 1 }),
-    c.models.SearchConfig.list({ limit: 1 }),
-  ]);
-
-  const profile =
-    profileRes.data[0] ??
-    (await c.models.Profile.create({ resumeText: '', linkedinText: '' })).data;
-  profileId = profile?.id ?? null;
-
-  const config =
-    configRes.data[0] ??
-    (
-      await c.models.SearchConfig.create({
-        termGroups: JSON.stringify(DEFAULT_GROUPS),
-        watchlist: JSON.stringify([]),
-        pausedCompanies: [],
-        excludedCompanies: [],
-        activeSources: JSON.stringify(DEFAULT_SOURCES),
-        autonomy: 'balanced',
-      })
-    ).data;
-  searchConfigId = config?.id ?? null;
-
-  const [roleRows, proposalRes, runRes] = await Promise.all([
+  const [roleRows, proposalsAll, runsAll] = await Promise.all([
     listAllRoles(),
-    c.models.Proposal.list({ limit: 200 }),
-    c.models.SweepRun.list({ limit: 50 }),
+    listAllPages<{
+      id: string;
+      kind?: string | null;
+      title: string;
+      rationale: string;
+      payload?: unknown;
+      status?: string | null;
+      resolvedNote?: string | null;
+    }>((o) => c.models.Proposal.list(o) as never),
+    listAllPages<{
+      id: string;
+      createdAt?: string | null;
+      fetched?: number | null;
+      kept?: number | null;
+      phantoms?: number | null;
+      gems?: number | null;
+    }>((o) => c.models.SweepRun.list(o) as never),
   ]);
+  const proposalRes = { data: proposalsAll.rows };
+  const runRes = { data: runsAll.rows };
 
   const strengthsRaw = parseJsonField<{
     strengths?: Strength[];
