@@ -37,6 +37,33 @@ export function ScoutsView() {
       ? 'Your scouts are combing your sources and reasoning against your résumé…'
       : 'Radar sends scouts across your sources, then brings you what fits to approve — it never acts alone.';
 
+  // Real sweep progress, derived from actual phases: the staged fetch spans
+  // ~5%→75% (one notch per source as it returns), the save/score tail holds
+  // ~88%, and completion is 100%. Drives both the loop pills and the bar so
+  // they reflect what's happening instead of an arbitrary tick.
+  const autoSources = state.runSources.filter((s) => s.kind !== 'manual');
+  const doneAuto = autoSources.filter((s) => s.status === 'done' || s.status === 'error').length;
+  const allFetched = autoSources.length > 0 && doneAuto === autoSources.length;
+  const progress = runDone
+    ? 1
+    : running
+      ? allFetched
+        ? 0.88
+        : 0.05 + 0.7 * (autoSources.length ? doneAuto / autoSources.length : 0)
+      : 0;
+  // SCAN · REASON · EXPAND · SURFACE light through the fetch + tail; LEARN
+  // only on completion. Idle (between sweeps) rests on LEARN.
+  const STAGE_THRESHOLDS = [0, 0.25, 0.5, 0.75, 1];
+  const stageActive = (i: number) =>
+    running || runDone ? progress >= STAGE_THRESHOLDS[i] : i === 4;
+  const progressLabel = running
+    ? allFetched
+      ? 'saving & scoring…'
+      : `scanning ${doneAuto}/${autoSources.length} sources`
+    : paused
+      ? 'standing by'
+      : `on-demand · last sweep ${state.summary.when}`;
+
   return (
     <>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -169,7 +196,7 @@ export function ScoutsView() {
           }}
         >
           {RADAR_STAGES.map((s, i) => {
-            const active = running ? i <= state.radarStage : i === 4;
+            const active = stageActive(i);
             return (
               <span key={s.key} style={{ display: 'contents' }}>
                 {i > 0 && <span style={{ color: '#CFC8B8', fontSize: 11 }}>›</span>}
@@ -191,14 +218,30 @@ export function ScoutsView() {
             );
           })}
           <span style={{ flex: 1 }} />
-          <span style={{ fontFamily: MONO, fontSize: 10.5, color: '#A39C8B' }}>
-            {running
-              ? 'sweep in progress'
-              : paused
-                ? 'standing by'
-                : `on-demand · last sweep ${state.summary.when}`}
-          </span>
+          <span style={{ fontFamily: MONO, fontSize: 10.5, color: '#A39C8B' }}>{progressLabel}</span>
         </div>
+
+        {(running || runDone) && (
+          <div
+            style={{
+              marginTop: 12,
+              height: 6,
+              borderRadius: 4,
+              background: '#EBE6DB',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${Math.round(progress * 100)}%`,
+                background: 'var(--rr-primary)',
+                borderRadius: 4,
+                transition: 'width .45s ease',
+              }}
+            />
+          </div>
+        )}
 
         {(running || runDone) && (
           <>
