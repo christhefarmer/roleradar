@@ -22,6 +22,7 @@ const RUN_STATUS_VM: Record<
   scanning: ['#F4ECDA', '#C39237', '#211E18', '#8A5E14'],
   done: ['#1E8A4F', '#1E8A4F', '#211E18', '#0F6B3B'],
   manual: ['#B07D26', '#B07D26', '#211E18', '#8A5E14'],
+  error: ['#B0492B', '#B0492B', '#8A4A2C', '#B0492B'],
 };
 
 export function ScoutsView() {
@@ -211,7 +212,9 @@ export function ScoutsView() {
                       ? 'fetching…'
                       : s.status === 'manual'
                         ? 'manual — paste'
-                        : `✓ ${s.count}`;
+                        : s.status === 'error'
+                          ? '⚠ skipped'
+                          : `✓ ${s.count}`;
                 return (
                   <div
                     key={s.name}

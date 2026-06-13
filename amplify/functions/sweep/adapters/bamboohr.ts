@@ -3,6 +3,7 @@
 // careers page renders from. Descriptions come from a capped number of
 // per-job detail calls.
 
+import { mapLimit } from './concurrency';
 import {
   eligibilityFromLocation,
   extractSalary,
@@ -51,14 +52,14 @@ export const bamboohr: SourceAdapter = {
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
     const entries = config.watchlist.filter((w) => w.provider === 'bamboohr');
-    const postings: RawPosting[] = [];
-    for (const entry of entries) {
+    const batches = await mapLimit(entries, 4, async (entry) => {
+      const out: RawPosting[] = [];
       try {
         const res = await fetch(LIST_URL(entry.slug), {
           headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(8000),
         });
-        if (!res.ok) continue; // tenant gone or careers page disabled — skip
+        if (!res.ok) return out; // tenant gone or careers page disabled — skip
         const body = (await res.json()) as { result?: BambooJob[] };
         const jobs = (body.result ?? []).filter((j) => j.jobOpeningName);
         const details = await Promise.allSettled(
@@ -76,7 +77,7 @@ export const bamboohr: SourceAdapter = {
           const detail = details[i]?.status === 'fulfilled' ? (details[i] as PromiseFulfilledResult<string>).value : '';
           const description =
             detail || [job.jobOpeningName, job.departmentLabel, job.employmentStatusLabel].filter(Boolean).join(' · ');
-          postings.push({
+          out.push({
             sourceId: `bamboohr:${entry.slug}:${job.id}`,
             title: job.jobOpeningName ?? '',
             company: entry.company,
@@ -89,8 +90,9 @@ export const bamboohr: SourceAdapter = {
       } catch {
         // Network hiccup on one board never sinks the whole sweep.
       }
-    }
-    return postings;
+      return out;
+    });
+    return batches.flat();
   },
 
   normalize(raw: RawPosting): NormalizedRole {

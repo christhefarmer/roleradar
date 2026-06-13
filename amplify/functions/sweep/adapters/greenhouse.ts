@@ -3,6 +3,7 @@
 // across the owner's watchlist. Be a good citizen: server-side only, modest
 // fan-out, polite backoff.
 
+import { mapLimit } from './concurrency';
 import {
   eligibilityFromLocation,
   extractSalary,
@@ -40,15 +41,15 @@ export const greenhouse: SourceAdapter = {
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
     const entries = config.watchlist.filter((w) => w.provider === 'greenhouse');
-    const postings: RawPosting[] = [];
-    for (const entry of entries) {
+    const batches = await mapLimit(entries, 8, async (entry) => {
+      const out: RawPosting[] = [];
       try {
-        const res = await fetch(BOARD_URL(entry.slug));
-        if (!res.ok) continue; // board gone or renamed — skip, don't fail the sweep
+        const res = await fetch(BOARD_URL(entry.slug), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return out; // board gone or renamed — skip, don't fail the sweep
         const body = (await res.json()) as { jobs?: GreenhouseJob[] };
         for (const job of body.jobs ?? []) {
           const description = stripHtml(job.content ?? '');
-          postings.push({
+          out.push({
             sourceId: `greenhouse:${entry.slug}:${job.id}`,
             title: job.title,
             company: entry.company,
@@ -62,8 +63,9 @@ export const greenhouse: SourceAdapter = {
       } catch {
         // Network hiccup on one board never sinks the whole sweep.
       }
-    }
-    return postings;
+      return out;
+    });
+    return batches.flat();
   },
 
   normalize(raw: RawPosting): NormalizedRole {

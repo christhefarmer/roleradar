@@ -356,9 +356,14 @@ function reducer(state: AppState, action: Action): AppState {
         radarStage: 4,
         runSummary: action.runSummary,
         summary: action.summary,
-        runSources: (action.sources ?? state.runSources).map((s) =>
-          s.kind === 'manual' ? { ...s, status: 'manual' } : { ...s, status: 'done' },
-        ),
+        // Connected mode passes explicit per-source rows (with real statuses
+        // from staged progress) — use them verbatim. Design mode passes none,
+        // so collapse the animated rows to done.
+        runSources:
+          action.sources ??
+          state.runSources.map((s) =>
+            s.kind === 'manual' ? { ...s, status: 'manual' } : { ...s, status: 'done' },
+          ),
       };
     case 'SWEEP_APPLIED':
       // Decision maps merge local-over-remote: a dismissal or stage move
@@ -863,10 +868,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Connected: the real Scout Lambda via the startSweep mutation. The
-    // per-source list animates while the call is in flight; the v2 upgrade
-    // replaces this with live progress over an AppSync subscription.
-    const termCount = s.termGroups.reduce((n, g) => n + g.terms.length, 0);
+    // Connected: the real Scout Lambda, staged one source per call (fanning
+    // every source into one 30s call is what timed out). Each row lights up
+    // for real as its call returns — no fixed timer.
+    const termCount = Math.min(20, s.termGroups.reduce((n, g) => n + g.terms.length, 0));
     let sources: RunSource[] = s.sources
       .filter((x) => x.on && remote.SOURCE_ADAPTER_IDS[x.name])
       .map((x): RunSource => {
@@ -890,23 +895,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         };
       });
     rawDispatch({ type: 'RUN_START', sources });
-    let tick = 0;
-    const ticker = window.setInterval(() => {
-      tick++;
-      sources = sources.map((x, i) =>
-        x.kind === 'manual' ? x : { ...x, status: i < tick ? 'scanning' : x.status },
+
+    let doneCount = 0;
+    const total = sources.length || 1;
+    const onProgress: remote.SweepProgress = (id, status, count) => {
+      const name = remote.ADAPTER_DISPLAY[id];
+      sources = sources.map((src) =>
+        src.name === name
+          ? {
+              ...src,
+              status: status === 'scanning' ? 'scanning' : status === 'error' ? 'error' : 'done',
+              count:
+                status === 'done' ? `${count ?? 0} role${count === 1 ? '' : 's'}` : src.count,
+            }
+          : src,
       );
-      rawDispatch({ type: 'RUN_TICK', sources, radarStage: Math.min(3, tick) });
-    }, 900);
+      if (status === 'done' || status === 'error') doneCount++;
+      rawDispatch({
+        type: 'RUN_TICK',
+        sources,
+        radarStage: Math.min(3, Math.round((doneCount / total) * 4)),
+      });
+    };
 
     (async () => {
       try {
-        const outcome = await remote.runSweepRemote(s, s.resumeText);
+        const outcome = await remote.runSweepRemote(s, s.resumeText, onProgress);
         rawDispatch({ type: 'SWEEP_APPLIED', outcome });
-        const finalSources = sources.map((src) => {
-          const entry = outcome.perSource.find((p) => remote.ADAPTER_DISPLAY[p.id] === src.name);
-          return entry ? { ...src, count: `${entry.count} role${entry.count === 1 ? '' : 's'}` } : src;
-        });
         rawDispatch({
           type: 'RUN_DONE',
           // Honest summary: net-new roles/gems that cleared the same filters
@@ -914,17 +929,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // the Canada filter and prior decisions correctly keep hidden).
           runSummary: sweepSummaryLine(s, outcome),
           summary: outcome.summary,
-          sources: finalSources,
+          sources,
         });
       } catch (e) {
         rawDispatch({
           type: 'RUN_DONE',
-          runSummary: `Sweep failed: ${e instanceof Error ? e.message : String(e)}. Check that the backend is deployed and try again.`,
+          runSummary: `Sweep failed: ${e instanceof Error ? e.message : String(e)}. Check the sweep Lambda logs and try again.`,
           summary: stateRef.current.summary,
           error: true,
         });
       } finally {
-        window.clearInterval(ticker);
         runningRef.current = false;
       }
     })();

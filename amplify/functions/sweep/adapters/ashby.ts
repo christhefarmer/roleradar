@@ -1,6 +1,7 @@
 // Ashby — watchlist-driven ATS adapter. Public, no-auth job-board endpoint
 // keyed by company slug; one shared adapter serves every user.
 
+import { mapLimit } from './concurrency';
 import {
   eligibilityFromLocation,
   extractSalary,
@@ -42,11 +43,11 @@ export const ashby: SourceAdapter = {
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
     const entries = config.watchlist.filter((w) => w.provider === 'ashby');
-    const postings: RawPosting[] = [];
-    for (const entry of entries) {
+    const batches = await mapLimit(entries, 8, async (entry) => {
+      const out: RawPosting[] = [];
       try {
-        const res = await fetch(BOARD_URL(entry.slug));
-        if (!res.ok) continue; // board gone or renamed — skip, don't fail the sweep
+        const res = await fetch(BOARD_URL(entry.slug), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return out; // board gone or renamed — skip, don't fail the sweep
         const body = (await res.json()) as { jobs?: AshbyJob[] };
         for (const job of body.jobs ?? []) {
           if (job.isListed === false) continue;
@@ -54,7 +55,7 @@ export const ashby: SourceAdapter = {
             .filter(Boolean)
             .join(' / ');
           const description = job.descriptionPlain ?? stripHtml(job.descriptionHtml ?? '');
-          postings.push({
+          out.push({
             sourceId: `ashby:${entry.slug}:${job.id}`,
             title: job.title,
             company: entry.company,
@@ -68,8 +69,9 @@ export const ashby: SourceAdapter = {
       } catch {
         // Network hiccup on one board never sinks the whole sweep.
       }
-    }
-    return postings;
+      return out;
+    });
+    return batches.flat();
   },
 
   normalize(raw: RawPosting): NormalizedRole {

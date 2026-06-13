@@ -4,6 +4,7 @@
 // outside the watchlist — with real Canadian locations, so eligibility is
 // nearly free.
 
+import { mapLimit } from './concurrency';
 import { firstField, looksLikeLocation, parseItems, splitFeedTitle } from './rss';
 import {
   eligibilityFromLocation,
@@ -22,13 +23,15 @@ export const eluta: SourceAdapter = {
   scope: 'aggregate',
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
-    const postings: RawPosting[] = [];
-    const seen = new Set<string>();
+    // Each term is one feed fetch — fan them out (bounded) rather than walk
+    // them one slow request at a time. The client caps the term list, so this
+    // stays modest; dedup by link happens after collecting across terms.
     let logged = false;
-    for (const term of config.terms) {
+    const batches = await mapLimit(config.terms, 5, async (term) => {
+      const out: RawPosting[] = [];
       try {
-        const res = await fetch(FEED_URL(term));
-        if (!res.ok) continue;
+        const res = await fetch(FEED_URL(term), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return out;
         const xml = await res.text();
         if (!logged) {
           // One-time diagnostic per sweep: the raw shape of the first item,
@@ -39,9 +42,7 @@ export const eluta: SourceAdapter = {
         }
         for (const fields of parseItems(xml)) {
           const link = firstField(fields, ['link', 'guid']);
-          if (!link || seen.has(link)) continue;
-          seen.add(link);
-
+          if (!link) continue;
           const rawTitle = firstField(fields, ['title']);
           const fromTitle = splitFeedTitle(rawTitle);
           const company =
@@ -53,7 +54,7 @@ export const eluta: SourceAdapter = {
             fromTitle.location;
           const description = firstField(fields, ['description', 'content:encoded', 'summary']);
 
-          postings.push({
+          out.push({
             sourceId: `eluta:${link}`,
             title: company ? rawTitle : fromTitle.title,
             company,
@@ -66,8 +67,11 @@ export const eluta: SourceAdapter = {
       } catch {
         // One bad term/feed never sinks the sweep.
       }
-    }
-    return postings;
+      return out;
+    });
+    // Dedup by link across the parallel term fetches.
+    const seen = new Set<string>();
+    return batches.flat().filter((p) => (seen.has(p.url) ? false : (seen.add(p.url), true)));
   },
 
   normalize(raw: RawPosting): NormalizedRole {
