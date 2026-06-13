@@ -134,7 +134,7 @@ export interface SourceDef {
   on: boolean;
 }
 
-export type RunStatus = 'pending' | 'scanning' | 'done' | 'manual';
+export type RunStatus = 'pending' | 'scanning' | 'done' | 'manual' | 'error';
 
 export interface RunSource {
   name: string;

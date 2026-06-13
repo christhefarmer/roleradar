@@ -1,6 +1,7 @@
 // Lever — watchlist-driven ATS adapter. Public, no-auth postings endpoint
 // keyed by company slug; one shared adapter serves every user.
 
+import { mapLimit } from './concurrency';
 import {
   eligibilityFromLocation,
   extractSalary,
@@ -47,19 +48,19 @@ export const lever: SourceAdapter = {
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
     const entries = config.watchlist.filter((w) => w.provider === 'lever');
-    const postings: RawPosting[] = [];
-    for (const entry of entries) {
+    const batches = await mapLimit(entries, 8, async (entry) => {
+      const out: RawPosting[] = [];
       try {
-        const res = await fetch(POSTINGS_URL(entry.slug));
-        if (!res.ok) continue; // board gone or renamed — skip, don't fail the sweep
+        const res = await fetch(POSTINGS_URL(entry.slug), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return out; // board gone or renamed — skip, don't fail the sweep
         const body = (await res.json()) as LeverPosting[];
-        if (!Array.isArray(body)) continue;
+        if (!Array.isArray(body)) return out;
         for (const job of body) {
           const lists = (job.lists ?? [])
             .map((l) => `${l.text} ${stripHtml(l.content)}`)
             .join(' ');
           const description = `${job.descriptionPlain ?? ''} ${lists}`.trim();
-          postings.push({
+          out.push({
             sourceId: `lever:${entry.slug}:${job.id}`,
             title: job.text,
             company: entry.company,
@@ -73,8 +74,9 @@ export const lever: SourceAdapter = {
       } catch {
         // Network hiccup on one board never sinks the whole sweep.
       }
-    }
-    return postings;
+      return out;
+    });
+    return batches.flat();
   },
 
   normalize(raw: RawPosting): NormalizedRole {

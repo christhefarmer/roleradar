@@ -2,6 +2,7 @@
 // keyed by company slug (the pattern behind apply.workable.com/{slug});
 // one shared adapter serves every user.
 
+import { mapLimit } from './concurrency';
 import {
   eligibilityFromLocation,
   extractSalary,
@@ -49,15 +50,15 @@ export const workable: SourceAdapter = {
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
     const entries = config.watchlist.filter((w) => w.provider === 'workable');
-    const postings: RawPosting[] = [];
-    for (const entry of entries) {
+    const batches = await mapLimit(entries, 8, async (entry) => {
+      const out: RawPosting[] = [];
       try {
-        const res = await fetch(BOARD_URL(entry.slug), { signal: AbortSignal.timeout(6000) });
-        if (!res.ok) continue; // board gone or renamed — skip, don't fail the sweep
+        const res = await fetch(BOARD_URL(entry.slug), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return out; // board gone or renamed — skip, don't fail the sweep
         const body = (await res.json()) as { jobs?: WorkableJob[] };
         for (const job of body.jobs ?? []) {
           const description = stripHtml(job.description ?? '');
-          postings.push({
+          out.push({
             sourceId: `workable:${entry.slug}:${job.shortcode}`,
             title: job.title,
             company: entry.company,
@@ -71,8 +72,9 @@ export const workable: SourceAdapter = {
       } catch {
         // Network hiccup on one board never sinks the whole sweep.
       }
-    }
-    return postings;
+      return out;
+    });
+    return batches.flat();
   },
 
   normalize(raw: RawPosting): NormalizedRole {

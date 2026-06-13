@@ -2,6 +2,7 @@
 // API keyed by company identifier; descriptions come from a capped number of
 // per-posting detail calls so the sweep stays inside its window.
 
+import { mapLimit } from './concurrency';
 import {
   eligibilityFromLocation,
   extractSalary,
@@ -49,11 +50,11 @@ export const smartrecruiters: SourceAdapter = {
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
     const entries = config.watchlist.filter((w) => w.provider === 'smartrecruiters');
-    const postings: RawPosting[] = [];
-    for (const entry of entries) {
+    const batches = await mapLimit(entries, 4, async (entry) => {
+      const out: RawPosting[] = [];
       try {
-        const res = await fetch(LIST_URL(entry.slug), { signal: AbortSignal.timeout(6000) });
-        if (!res.ok) continue; // board gone or renamed — skip, don't fail the sweep
+        const res = await fetch(LIST_URL(entry.slug), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return out; // board gone or renamed — skip, don't fail the sweep
         const body = (await res.json()) as { content?: SrPosting[] };
         const jobs = body.content ?? [];
         const details = await Promise.allSettled(
@@ -71,7 +72,7 @@ export const smartrecruiters: SourceAdapter = {
         jobs.forEach((job, i) => {
           const detail = details[i]?.status === 'fulfilled' ? (details[i] as PromiseFulfilledResult<string>).value : '';
           const description = detail || job.name;
-          postings.push({
+          out.push({
             sourceId: `smartrecruiters:${entry.slug}:${job.id}`,
             title: job.name,
             company: entry.company,
@@ -85,8 +86,9 @@ export const smartrecruiters: SourceAdapter = {
       } catch {
         // Network hiccup on one board never sinks the whole sweep.
       }
-    }
-    return postings;
+      return out;
+    });
+    return batches.flat();
   },
 
   normalize(raw: RawPosting): NormalizedRole {

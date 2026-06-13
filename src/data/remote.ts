@@ -909,18 +909,29 @@ export interface SweepOutcome {
   perSource: { id: string; count: number }[];
 }
 
+/** Highest term cap sent to the sweep. Caps Eluta's per-term feed fetches and
+ *  keeps scoring focused on the High/Med tiers — a practical guard against a
+ *  bloated term list dragging out the sweep. */
+const MAX_SWEEP_TERMS = 20;
+
+export type SweepProgress = (id: string, status: 'scanning' | 'done' | 'error', count?: number) => void;
+
 export async function runSweepRemote(
   cfg: SearchConfigState,
   resumeText: string,
+  onProgress?: SweepProgress,
 ): Promise<SweepOutcome> {
   const c = client();
   const activeIds = cfg.sources
     .filter((s) => s.on && SOURCE_ADAPTER_IDS[s.name])
     .map((s) => SOURCE_ADAPTER_IDS[s.name]);
-  const terms = cfg.termGroups.flatMap((g) => g.terms);
-  // Tier weights drive scoring: High terms count most.
+  // Tier weights drive scoring (High counts most); cap the term list so a
+  // long Range doesn't fan out into hundreds of feed fetches.
   const weights: Record<string, number> = {};
   for (const g of cfg.termGroups) for (const t of g.terms) weights[t.toLowerCase()] = g.weight;
+  const terms = [...new Set(cfg.termGroups.flatMap((g) => g.terms))]
+    .sort((a, b) => (weights[b.toLowerCase()] ?? 0) - (weights[a.toLowerCase()] ?? 0))
+    .slice(0, MAX_SWEEP_TERMS);
   const watchlist = cfg.watchlist
     .filter((w) => !cfg.watchPaused[w.name] && !cfg.excluded.includes(w.name))
     .map((w) => ({
@@ -929,20 +940,46 @@ export async function runSweepRemote(
       slug: w.slug ?? w.name.toLowerCase().replace(/[^a-z0-9]+/g, ''),
     }));
 
-  const res = await c.mutations.startSweep({
-    config: JSON.stringify({
-      terms,
-      weights,
-      watchlist,
-      excludedCompanies: cfg.excluded,
-      activeSources: activeIds,
-    }),
-  });
-  if (res.errors?.length) throw new Error(res.errors[0].message);
-  const result = parseJsonField<SweepResultWire | null>(res.data, null);
-  if (!result || !Array.isArray(result.roles)) {
-    throw new Error('Sweep returned an unexpected payload — check the sweep Lambda logs');
+  // Stage the sweep one source per Lambda invocation. Fanning every source
+  // into a single 30s call is what timed out (70 feed fetches + 100+ ATS
+  // board pulls at once); each source now gets its own call, well inside the
+  // window, and a slow or failing source is skipped — not fatal to the sweep.
+  const wireRoles: ScoredRoleWire[] = [];
+  const perSource: { id: string; count: number }[] = [];
+  let fetchedTotal = 0;
+  let anySucceeded = false;
+  for (const id of activeIds) {
+    onProgress?.(id, 'scanning');
+    try {
+      const res = await c.mutations.startSweep({
+        config: JSON.stringify({
+          terms,
+          weights,
+          watchlist,
+          excludedCompanies: cfg.excluded,
+          activeSources: [id],
+        }),
+      });
+      if (res.errors?.length) throw new Error(res.errors[0].message);
+      const result = parseJsonField<SweepResultWire | null>(res.data, null);
+      if (!result || !Array.isArray(result.roles)) throw new Error('unexpected payload');
+      wireRoles.push(...result.roles);
+      fetchedTotal += result.fetched ?? 0;
+      anySucceeded = true;
+      const count = result.perSource.find((p) => p.id === id)?.count ?? result.roles.length;
+      perSource.push({ id, count });
+      onProgress?.(id, 'done', count);
+    } catch (e) {
+      console.warn(`sweep source ${id} failed`, e);
+      perSource.push({ id, count: 0 });
+      onProgress?.(id, 'error');
+    }
   }
+  if (!anySucceeded && activeIds.length > 0) {
+    throw new Error('Every source failed — check the sweep Lambda logs');
+  }
+  const keptTotal = wireRoles.length;
+  const gemsTotal = wireRoles.filter((r) => r.gem).length;
 
   // Upsert into owner-scoped Role rows, keyed by stable sourceId — with a
   // company+title fallback so the same posting re-found via another source
@@ -960,7 +997,7 @@ export async function runSweepRemote(
   );
   const now = new Date().toISOString();
 
-  for (const wire of result.roles) {
+  for (const wire of wireRoles) {
     const prev =
       bySourceId.get(wire.sourceId) ??
       (wire.company && wire.title ? byNameTitle.get(normKey(wire.company, wire.title)) : undefined);
@@ -1130,14 +1167,17 @@ export async function runSweepRemote(
   }
 
   const phantomCount = phantoms.length;
+  const rawSummary =
+    `Fetched ${fetchedTotal} roles across ${perSource.length} source${perSource.length === 1 ? '' : 's'} → ` +
+    `${keptTotal} kept → ${gemsTotal} content match${gemsTotal === 1 ? '' : 'es'}.`;
   await c.models.SweepRun.create({
     status: 'done',
-    progress: JSON.stringify(result.perSource),
-    fetched: result.fetched,
-    kept: result.kept,
+    progress: JSON.stringify(perSource),
+    fetched: fetchedTotal,
+    kept: keptTotal,
     phantoms: phantomCount,
-    gems: result.gems,
-    summary: result.summary,
+    gems: gemsTotal,
+    summary: rawSummary,
   });
 
   // Re-hydrate the slices a sweep touches.
@@ -1151,11 +1191,18 @@ export async function runSweepRemote(
     dismissed: snapshot.dismissed,
     overrides: snapshot.overrides,
     gemDecisions: snapshot.gemDecisions,
-    summary: { ...snapshot.summary, when: 'just now' },
-    runSummary:
-      result.summary +
-      (phantomCount ? ` ${phantomCount} phantom${phantomCount > 1 ? 's' : ''} flagged.` : ''),
-    perSource: result.perSource,
+    summary: {
+      fetched: fetchedTotal,
+      kept: keptTotal,
+      phantoms: phantomCount,
+      gems: gemsTotal,
+      when: 'just now',
+      at: new Date().toISOString(),
+    },
+    // The store rebuilds the user-facing line from the actionable selectors;
+    // this raw funnel string is the fallback / record.
+    runSummary: rawSummary,
+    perSource,
   };
 }
 

@@ -2,6 +2,7 @@
 // The watchlist slug carries `{tenant}:{dc}:{site}` (captured from a pasted
 // myworkdayjobs.com careers URL); the public CXS endpoint needs no auth.
 
+import { mapLimit } from './concurrency';
 import {
   eligibilityFromLocation,
   type FetchConfig,
@@ -25,12 +26,12 @@ export const workday: SourceAdapter = {
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
     const entries = config.watchlist.filter((w) => w.provider === 'workday');
-    const postings: RawPosting[] = [];
-    for (const entry of entries) {
+    const batches = await mapLimit(entries, 6, async (entry) => {
+      const out: RawPosting[] = [];
       const [tenant, dc, site] = entry.slug.split(':');
       if (!tenant || !dc || !site) {
         console.log(`workday entry skipped (needs tenant:dc:site slug): ${entry.company}`);
-        continue;
+        return out;
       }
       try {
         const base = `https://${tenant}.${dc}.myworkdayjobs.com`;
@@ -38,16 +39,16 @@ export const workday: SourceAdapter = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ appliedFacets: {}, limit: 20, offset: 0, searchText: '' }),
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(8000),
         });
         if (!res.ok) {
           console.log(`workday board ${entry.slug}: HTTP ${res.status}`);
-          continue;
+          return out;
         }
         const body = (await res.json()) as { jobPostings?: WorkdayPosting[] };
         for (const job of body.jobPostings ?? []) {
           if (!job.title || !job.externalPath) continue;
-          postings.push({
+          out.push({
             sourceId: `workday:${entry.slug}:${job.externalPath}`,
             title: job.title,
             company: entry.company,
@@ -64,8 +65,9 @@ export const workday: SourceAdapter = {
       } catch {
         // Network hiccup on one board never sinks the whole sweep.
       }
-    }
-    return postings;
+      return out;
+    });
+    return batches.flat();
   },
 
   normalize(raw: RawPosting): NormalizedRole {
