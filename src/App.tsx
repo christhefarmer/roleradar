@@ -3,12 +3,13 @@
 // straight into Radar the bot, with the full cockpit one tap away
 // (ARCHITECTURE.md §5 — bot-first routing).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AuthGate } from './auth/AuthGate';
 import { AssistantRail } from './components/AssistantRail';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import type { ViewKey } from './domain/types';
+import { useIsMobile } from './lib/useIsMobile';
 import { MobileBot } from './mobile/MobileBot';
 import { useStore } from './state/store';
 import { GemsView } from './views/GemsView';
@@ -29,17 +30,6 @@ const PATH_TO_VIEW: Record<string, ViewKey> = {
   '/pipeline': 'pipeline',
   '/profile': 'profile',
 };
-
-function useIsMobile(): boolean {
-  const query = useMemo(() => window.matchMedia('(max-width: 820px)'), []);
-  const [mobile, setMobile] = useState(query.matches);
-  useEffect(() => {
-    const onChange = (e: MediaQueryListEvent) => setMobile(e.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, [query]);
-  return mobile;
-}
 
 export default function App() {
   const { state, dispatch, startRun } = useStore();
