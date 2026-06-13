@@ -945,6 +945,11 @@ export async function runSweepRemote(
   // into a single 30s call is what timed out (70 feed fetches + 100+ ATS
   // board pulls at once); each source now gets its own call, well inside the
   // window, and a slow or failing source is skipped — not fatal to the sweep.
+  // Fetch one source per Lambda call, strictly SEQUENTIAL — this is what got
+  // us out of the all-at-once timeout, so it stays sequential by design.
+  // Speed comes from parallel work that can't reintroduce that risk (the
+  // persistence below, and in-adapter fetch concurrency), not from firing
+  // these calls at once. A slow or failing source is skipped, not fatal.
   const wireRoles: ScoredRoleWire[] = [];
   const perSource: { id: string; count: number }[] = [];
   let fetchedTotal = 0;
