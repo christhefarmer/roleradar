@@ -52,7 +52,7 @@ import {
 } from '../data/seed';
 import { botReply } from '../data/botReplies';
 import { buildChatContext } from '../data/aiContext';
-import { sweepSummaryLine } from './selectors';
+import { hiddenRoles, sweepSummaryLine } from './selectors';
 import { isConnected } from '../lib/amplify';
 import * as auth from '../auth/authService';
 import * as remote from '../data/remote';
@@ -228,6 +228,8 @@ export type Action =
   | { type: 'SWEEP_APPLIED'; outcome: remote.SweepOutcome }
   | { type: 'TOGGLE_EXPAND'; id: string }
   | { type: 'DISMISS_ROLE'; id: string }
+  | { type: 'DISMISS_MANY'; ids: string[] }
+  | { type: 'QUEUE_PROPOSAL'; proposal: Proposal }
   | { type: 'SET_SORT'; sortBy: 'fit' | 'new' }
   | { type: 'TOGGLE_CANADA' }
   | { type: 'TOGGLE_BELOW' }
@@ -261,7 +263,7 @@ export type Action =
   | { type: 'TOGGLE_ASSISTANT' }
   | { type: 'OPEN_ASSISTANT' }
   | { type: 'SEND_CHAT'; text: string }
-  | { type: 'CHAT_PUSH'; role: 'bot' | 'user'; text: string }
+  | { type: 'CHAT_PUSH'; role: 'bot' | 'user'; text: string; showProposals?: boolean }
   | { type: 'CHAT_APPEND'; text: string }
   | { type: 'CHAT_BUSY'; busy: boolean }
   | { type: 'CHAT_HYDRATE'; messages: ChatMessage[] }
@@ -285,6 +287,12 @@ const STAGE_ORDER: PipelineStageKey[] = [
  *  executes the proposal's payload (persistence happens in the provider). */
 function applyApproval(state: AppState, id: string): AppState {
   const proposal = state.proposals.find((p) => p.id === id);
+  if (proposal?.targetIds?.length) {
+    // Bulk action (dismiss-hidden): dismiss exactly the captured set.
+    const dismissed = { ...state.dismissed };
+    for (const rid of proposal.targetIds) dismissed[rid] = true;
+    return { ...state, dismissed };
+  }
   if (proposal?.payload?.roleId) {
     // mutePhantom: clear the flag locally; the row update happens provider-side.
     return {
@@ -383,6 +391,15 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, expanded: { ...state.expanded, [action.id]: !state.expanded[action.id] } };
     case 'DISMISS_ROLE':
       return { ...state, dismissed: { ...state.dismissed, [action.id]: true } };
+    case 'DISMISS_MANY': {
+      const dismissed = { ...state.dismissed };
+      for (const id of action.ids) dismissed[id] = true;
+      return { ...state, dismissed };
+    }
+    case 'QUEUE_PROPOSAL':
+      return state.proposals.some((p) => p.id === action.proposal.id)
+        ? state
+        : { ...state, proposals: [action.proposal, ...state.proposals] };
     case 'SET_SORT':
       return { ...state, sortBy: action.sortBy };
     case 'TOGGLE_CANADA':
@@ -598,7 +615,13 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
     case 'CHAT_PUSH':
-      return { ...state, chat: [...state.chat, { role: action.role, text: action.text }] };
+      return {
+        ...state,
+        chat: [
+          ...state.chat,
+          { role: action.role, text: action.text, showProposals: action.showProposals },
+        ],
+      };
     case 'CHAT_APPEND': {
       const chat = [...state.chat];
       const last = chat[chat.length - 1];
@@ -696,6 +719,9 @@ interface Api {
   signOut: () => Promise<void>;
   parseProfile: () => Promise<void>;
   sendChat: (text: string) => void;
+  /** Bulk-dismiss every role the active filters hide (button on Roles).
+   *  Returns the count dismissed. */
+  dismissHidden: () => number;
 }
 
 interface Store {
@@ -750,6 +776,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           case 'DISMISS_ROLE':
             void remote.saveRolePatch(action.id, { dismissed: true });
             break;
+          case 'DISMISS_MANY':
+            void remote.dismissRolesRemote(action.ids);
+            break;
           case 'TOGGLE_OVERRIDE':
             void remote.saveRolePatch(action.id, { eligibilityOverridden: !!s.overrides[action.id] });
             break;
@@ -760,6 +789,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const p = s.proposals.find((x) => x.id === action.id);
             if (p?.recordId) void remote.saveProposalStatus(p.recordId, 'approved', p.ok);
             if (p?.payload?.roleId) void remote.saveRolePatch(p.payload.roleId, { phantomMuted: true });
+            if (p?.targetIds?.length) void remote.dismissRolesRemote(p.targetIds);
             break;
           }
           case 'DISMISS_PROPOSAL': {
@@ -1020,6 +1050,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sendChat(text) {
         const t = text.trim();
         if (!t) return;
+
+        // "Dismiss hidden / non-CA / below-level roles" — recognized from the
+        // owner's own words (deterministic, no model needed) and routed through
+        // the approval queue: Radar proposes, the owner approves. Works in both
+        // modes and even if Bedrock chat is down.
+        const wantsTidy =
+          /\bdismiss\b/i.test(t) &&
+          /\b(hidden|non[-\s]?canad|out[-\s]?of[-\s]?range|below[-\s]?level|ineligible|us[-\s]?only)\b/i.test(t);
+        if (wantsTidy) {
+          rawDispatch({ type: 'CHAT_PUSH', role: 'user', text: t });
+          const hidden = hiddenRoles(stateRef.current);
+          if (!hidden.length) {
+            rawDispatch({
+              type: 'CHAT_PUSH',
+              role: 'bot',
+              text: 'Nothing hidden to dismiss — every role in your list already clears your Canada and level filters.',
+            });
+            return;
+          }
+          const n = hidden.length;
+          dispatch({
+            type: 'QUEUE_PROPOSAL',
+            proposal: {
+              id: `dismiss-hidden-${Date.now()}`,
+              kind: 'TIDY ROLES',
+              tone: 'warn',
+              title: `Dismiss ${n} hidden role${n === 1 ? '' : 's'}`,
+              rationale:
+                'Roles your Canada-eligible and below-level filters currently hide — non-Canada or below your level. Approving clears them from your list (kept in your data, not deleted).',
+              ok: `Dismissed ${n} hidden role${n === 1 ? '' : 's'}.`,
+              targetIds: hidden.map((r) => r.id),
+            },
+          });
+          rawDispatch({
+            type: 'CHAT_PUSH',
+            role: 'bot',
+            text: `${n} role${n === 1 ? ' is' : 's are'} hidden by your filters (non-Canada or below level). I only act on your OK, so I've queued the dismissal — approve it below.`,
+            showProposals: true,
+          });
+          return;
+        }
+
         if (!isConnected) {
           dispatch({ type: 'SEND_CHAT', text: t });
           return;
@@ -1042,6 +1114,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             onError: fail,
           })
           .catch((e) => fail(e instanceof Error ? e.message : String(e)));
+      },
+      dismissHidden() {
+        const ids = hiddenRoles(stateRef.current).map((r) => r.id);
+        if (ids.length) dispatch({ type: 'DISMISS_MANY', ids });
+        return ids.length;
       },
     }),
     [dispatch, hydrateAfterAuth],

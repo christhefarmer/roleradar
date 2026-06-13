@@ -19,6 +19,15 @@ export function visibleRoles(s: AppState): Role[] {
     .filter((r) => !s.hideBelow || (r.verdict !== 'below' && r.verdict !== 'mismatch'));
 }
 
+/** Roles currently hidden by the active filters (Canada / below-level) but
+ *  not yet dismissed — the set the "Dismiss hidden roles" action clears. */
+export function hiddenRoles(s: AppState): Role[] {
+  const visible = new Set(visibleRoles(s).map((r) => r.id));
+  return s.roles.filter(
+    (r) => !s.dismissed[r.id] && !s.excluded.includes(r.company) && !visible.has(r.id),
+  );
+}
+
 /** The owner's fit dimensions: their top parsed strengths plus the two
  *  universal dimensions (level fit, Canada eligibility). Design mode keeps
  *  the prototype's fixed set. */
