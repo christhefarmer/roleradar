@@ -3,6 +3,7 @@
 
 import { DIMS } from '../data/seed';
 import type { Gem, Role } from '../domain/types';
+import type { SweepOutcome } from '../data/remote';
 import type { AppState } from './store';
 
 /** Roles the Roles view lists (pre-sort): not dismissed, company not
@@ -56,4 +57,47 @@ export function hiddenPendingGemCount(s: AppState): number {
     (g) => !s.gemDecisions[g.id] && !s.dismissed[g.id],
   ).length;
   return Math.max(0, pendingAll - pendingGemCount(s));
+}
+
+/** Honest post-sweep summary line for the Scouts view. Reconciles the raw
+ *  scan funnel with what's actually actionable for the owner: it counts the
+ *  net-new roles and gems that cleared the SAME filters the sidebar uses, and
+ *  says so plainly when nothing new got through — so a sweep that surfaced
+ *  hundreds of non-Canada matches never reads as if they need attention.
+ *  `before` is the pre-sweep state; `outcome` carries the post-sweep records. */
+export function sweepSummaryLine(before: AppState, outcome: SweepOutcome): string {
+  const after = {
+    ...before,
+    roles: outcome.roles,
+    gems: outcome.gems,
+    dismissed: outcome.dismissed,
+    overrides: outcome.overrides,
+    gemDecisions: outcome.gemDecisions,
+  } as AppState;
+
+  const visibleNow = visibleRoles(after).length;
+  const newVisible = Math.max(0, visibleNow - visibleRoles(before).length);
+  const newGems = Math.max(0, pendingGemCount(after) - pendingGemCount(before));
+
+  const fetched = outcome.summary.fetched;
+  const rawGems = outcome.summary.gems;
+  const phantoms = outcome.summary.phantoms;
+  const pl = (n: number) => (n === 1 ? '' : 's');
+
+  let line: string;
+  if (newVisible > 0 || newGems > 0) {
+    const parts: string[] = [];
+    if (newVisible > 0) parts.push(`${newVisible} new Canada-eligible role${pl(newVisible)}`);
+    if (newGems > 0) parts.push(`${newGems} new gem${pl(newGems)} to review`);
+    line = `${parts.join(' · ')} — from ${fetched.toLocaleString()} postings scanned.`;
+  } else {
+    line =
+      `No new Canada-eligible roles this sweep — your ${visibleNow} role${pl(visibleNow)} ` +
+      `${visibleNow === 1 ? 'is' : 'are'} unchanged.`;
+    if (rawGems > 0) {
+      line += ` (${rawGems} content match${rawGems === 1 ? '' : 'es'} surfaced, all outside your Canada filter or already decided.)`;
+    }
+  }
+  if (phantoms > 0) line += ` ${phantoms} phantom${pl(phantoms)} flagged.`;
+  return line;
 }

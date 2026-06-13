@@ -52,6 +52,7 @@ import {
 } from '../data/seed';
 import { botReply } from '../data/botReplies';
 import { buildChatContext } from '../data/aiContext';
+import { sweepSummaryLine } from './selectors';
 import { isConnected } from '../lib/amplify';
 import * as auth from '../auth/authService';
 import * as remote from '../data/remote';
@@ -908,7 +909,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
         rawDispatch({
           type: 'RUN_DONE',
-          runSummary: outcome.runSummary,
+          // Honest summary: net-new roles/gems that cleared the same filters
+          // the sidebar uses — not the raw scan funnel (which counts matches
+          // the Canada filter and prior decisions correctly keep hidden).
+          runSummary: sweepSummaryLine(s, outcome),
           summary: outcome.summary,
           sources: finalSources,
         });
