@@ -59,17 +59,21 @@ export function SectionLabel({
   );
 }
 
-/** Eligibility badge — heuristic hint, colored by the signal trio. */
+/** Eligibility badge — heuristic hint, colored by the signal trio. The
+ *  provenance detail rides as a hover tooltip. */
 export function EligBadge({
   elig,
   fontSize = 10,
+  tooltip,
 }: {
   elig: Eligibility;
   fontSize?: number;
+  tooltip?: string;
 }) {
   const vm = eligVm(elig);
   return (
     <span
+      title={tooltip}
       style={{
         fontFamily: MONO,
         fontSize,
