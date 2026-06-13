@@ -184,7 +184,7 @@ const schema = a.schema({
         a.ai.dataTool({
           name: 'listRoles',
           description:
-            'List the owner’s normalized roles with fit scores, verdicts, eligibility, phantom signals, gem flags and pipeline stages. The context snapshot already carries the top visible roles — use this tool when you need the full set or roles outside the snapshot.',
+            'List the owner’s normalized roles. EXPENSIVE: rows include full descriptions — call only when the context snapshot (which already carries the top visible roles) cannot answer, at most once per conversation turn, and always pass a filter to narrow the results.',
           model: a.ref('Role'),
           modelOperation: 'list',
         }),

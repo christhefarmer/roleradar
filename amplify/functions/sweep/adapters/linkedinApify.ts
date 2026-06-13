@@ -98,26 +98,47 @@ export const linkedinApify: SourceAdapter = {
     }
 
     // 2. Start the next run with the current top terms (fire and forget —
-    //    its results arrive on the next sweep). Diagnostic-log rejections so
-    //    an input-schema mismatch is a one-look fix in CloudWatch.
+    //    its results arrive on the next sweep). Throttled: skip when a run
+    //    started inside the last 30 minutes, so rapid sweeps don't stack
+    //    pay-per-result actor runs. Diagnostic-log rejections so an
+    //    input-schema mismatch is a one-look fix in CloudWatch.
     try {
       const keywords = config.terms.slice(0, 3).join(' OR ');
       if (keywords) {
-        const start = await fetch(`https://api.apify.com/v2/acts/${ACTOR}/runs?token=${token}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            keywords,
-            keyword: keywords,
-            searchKeyword: keywords,
-            location: 'Canada',
-            maxItems: MAX_ITEMS,
-            rows: MAX_ITEMS,
-          }),
-          signal: AbortSignal.timeout(8000),
-        });
-        if (!start.ok) {
-          console.log(`linkedin-apify run start: HTTP ${start.status} — ${(await start.text()).slice(0, 400)}`);
+        let recentRun = false;
+        try {
+          const meta = await fetch(`https://api.apify.com/v2/acts/${ACTOR}/runs/last?token=${token}`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (meta.ok) {
+            const body = (await meta.json()) as { data?: { startedAt?: string } };
+            const startedAt = body.data?.startedAt;
+            recentRun = !!startedAt && Date.now() - Date.parse(startedAt) < 30 * 60_000;
+          }
+        } catch {
+          // metadata miss — fall through and start a run
+        }
+        if (recentRun) {
+          console.log('linkedin-apify: last run <30min old — not starting another');
+        } else {
+          const start = await fetch(`https://api.apify.com/v2/acts/${ACTOR}/runs?token=${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              keywords,
+              keyword: keywords,
+              searchKeyword: keywords,
+              location: 'Canada',
+              maxItems: MAX_ITEMS,
+              rows: MAX_ITEMS,
+            }),
+            signal: AbortSignal.timeout(8000),
+          });
+          if (!start.ok) {
+            console.log(
+              `linkedin-apify run start: HTTP ${start.status} — ${(await start.text()).slice(0, 400)}`,
+            );
+          }
         }
       }
     } catch (e) {

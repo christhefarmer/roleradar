@@ -150,6 +150,8 @@ export interface SweepSummary {
   phantoms: number;
   gems: number;
   when: string;
+  /** ISO timestamp of the last sweep (connected mode; throttles auto-sweeps). */
+  at?: string;
 }
 
 export type StrengthConfidence = 'HIGH' | 'MED' | 'RARE';

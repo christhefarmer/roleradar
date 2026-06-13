@@ -76,15 +76,23 @@ export function MobileBot({ onOpenCockpit }: { onOpenCockpit: (view: ViewKey) =>
   }, [connected, startRun, runLocalSweep]);
 
   // Launch feel: splash, then the sweep. Connected mode kicks off a real
-  // sweep on cold start (the briefing settles in when the Lambda returns).
+  // sweep on cold start — but throttled: opening the PWA repeatedly must not
+  // stack paid sweeps, so the auto-run only fires when the last sweep is
+  // more than 30 minutes old (the ↻ replay button always runs).
+  const autoRan = useRef(false);
   useEffect(() => {
-    const t = setTimeout(() => {
-      setSplashDone(true);
-      replay();
-    }, 1100);
+    const t = setTimeout(() => setSplashDone(true), 1100);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    if (!splashDone || autoRan.current) return;
+    if (connected && !state.authed) return; // wait for session restore
+    autoRan.current = true;
+    const last = state.summary.at ? Date.parse(state.summary.at) : 0;
+    const fresh = connected && Date.now() - last < 30 * 60_000;
+    if (!fresh) replay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [splashDone, state.authed, state.summary.at]);
 
   const phase: Phase = !splashDone
     ? 'splash'

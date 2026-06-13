@@ -17,6 +17,13 @@ const backend = defineBackend({
   aiInvoke,
 });
 
+// Private cockpit: no self-service sign-up. Every authenticated user can
+// spend Bedrock/Apify budget through the AI mutations, so accounts are
+// created only by the admin (Cognito console → Users → Create user).
+backend.auth.resources.cfnResources.cfnUserPool.adminCreateUserConfig = {
+  allowAdminCreateUserOnly: true,
+};
+
 // Explicit Bedrock access for the direct-invocation Lambda. Global inference
 // profiles route across regions, so the grant covers the profile ARN in any
 // region plus the underlying foundation-model ARNs everywhere it may land.
