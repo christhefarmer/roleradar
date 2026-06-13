@@ -110,6 +110,9 @@ export interface Proposal {
   ok: string;
   /** Machine-readable payload the approval executes (e.g. { roleId }). */
   payload?: Record<string, string>;
+  /** Role ids a bulk action (e.g. dismiss-hidden) targets — captured when the
+   *  proposal is raised so approving acts on exactly that set. */
+  targetIds?: string[];
 }
 
 export interface TermGroup {

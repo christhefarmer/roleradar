@@ -711,6 +711,19 @@ export async function saveRolePatch(
   });
 }
 
+/** Persist a bulk dismissal — parallel writes (the staged sweep already
+ *  relies on this concurrency helper). Best-effort: a failed row is logged,
+ *  the rest proceed; UI state has already marked them dismissed. */
+export async function dismissRolesRemote(recordIds: string[]): Promise<void> {
+  await mapLimit(recordIds, 8, async (id) => {
+    try {
+      await client().models.Role.update({ id, dismissed: true });
+    } catch (e) {
+      console.warn('bulk dismiss', id, e);
+    }
+  });
+}
+
 export async function saveProposalStatus(
   recordId: string,
   status: 'approved' | 'dismissed',

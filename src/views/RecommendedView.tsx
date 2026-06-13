@@ -2,14 +2,19 @@
 // mono fit score, 8-segment dimension meter, reason chips and flags; expanding
 // reveals the transparent fit breakdown. A score is never shown without its why.
 
+import { useState } from 'react';
 import type { Role } from '../domain/types';
-import { fitDimensions, visibleRoles } from '../state/selectors';
+import { fitDimensions, hiddenRoles, visibleRoles } from '../state/selectors';
 import { useStore } from '../state/store';
 import { EligBadge, filterToggleStyle, formatDiscovered, MONO } from '../ui/primitives';
 import { VERDICTS, chipTone, meterColor } from '../ui/tones';
 
 export function RecommendedView() {
-  const { state, dispatch, startRun } = useStore();
+  const { state, dispatch, startRun, api } = useStore();
+  const [confirmDismiss, setConfirmDismiss] = useState(false);
+  // The "dismiss hidden roles" affordance only makes sense when both filters
+  // are narrowing the list to Canada-eligible, at-level roles.
+  const hiddenCount = state.canadaOnly && state.hideBelow ? hiddenRoles(state).length : 0;
 
   const tierOf = (r: Role) => (r.verdict === 'below' || r.verdict === 'mismatch' ? 2 : 0);
   const list = visibleRoles(state).sort((a, b) => {
@@ -61,6 +66,65 @@ export function RecommendedView() {
           />
           Hide below-level
         </button>
+        {hiddenCount > 0 &&
+          (confirmDismiss ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--rr-risk-strong)' }}>
+                Dismiss {hiddenCount} hidden?
+              </span>
+              <button
+                onClick={() => {
+                  api.dismissHidden();
+                  setConfirmDismiss(false);
+                }}
+                style={{
+                  border: '1px solid #E6CBBE',
+                  background: 'var(--rr-risk-tint)',
+                  color: 'var(--rr-risk-strong)',
+                  cursor: 'pointer',
+                  padding: '6px 11px',
+                  borderRadius: 7,
+                  fontFamily: MONO,
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setConfirmDismiss(false)}
+                style={{
+                  border: '1px solid var(--rr-border)',
+                  background: 'var(--rr-surface)',
+                  color: 'var(--rr-faint)',
+                  cursor: 'pointer',
+                  padding: '6px 11px',
+                  borderRadius: 7,
+                  fontFamily: MONO,
+                  fontSize: 11,
+                }}
+              >
+                No
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirmDismiss(true)}
+              title="Dismiss every role hidden by these filters — non-Canada and below-level"
+              style={{
+                border: '1px solid #E6CBBE',
+                background: 'transparent',
+                color: 'var(--rr-risk-strong)',
+                cursor: 'pointer',
+                padding: '6px 12px',
+                borderRadius: 7,
+                fontFamily: MONO,
+                fontSize: 11,
+              }}
+            >
+              Dismiss hidden roles ({hiddenCount})
+            </button>
+          ))}
         <span style={{ flex: 1 }} />
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--rr-faint)' }}>
           {list.length} roles shown
