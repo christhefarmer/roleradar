@@ -888,13 +888,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           status: 'pending',
         };
       });
-    sources.push({
-      name: 'LinkedIn',
-      detail: 'Manual alert inbox — no automated pull',
-      count: 'manual',
-      kind: 'manual',
-      status: 'manual',
-    });
     rawDispatch({ type: 'RUN_START', sources });
     let tick = 0;
     const ticker = window.setInterval(() => {
