@@ -579,6 +579,7 @@ export async function loadAccount(): Promise<AccountSnapshot> {
         phantoms: latest.phantoms ?? 0,
         gems: latest.gems ?? 0,
         when: `${daysAgoLabel(latest.createdAt)}`,
+        at: latest.createdAt ?? undefined,
       }
     : { fetched: 0, kept: 0, phantoms: 0, gems: 0, when: 'never' };
 
