@@ -234,6 +234,9 @@ export function ScoutsView() {
                         background: dotBg,
                         border: `2px solid ${dotBd}`,
                         flex: '0 0 auto',
+                        // The actively-fetching source pulses so the eye lands
+                        // on what's in flight right now.
+                        animation: s.status === 'scanning' ? 'radarpulse 1.3s infinite' : 'none',
                       }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
