@@ -23,6 +23,7 @@ import type {
   WatchEntry,
 } from '../domain/types';
 import { client } from '../lib/amplify';
+import { mapLimit } from '../lib/concurrency';
 
 // ---------------------------------------------------------------------------
 // Shapes shared with the backend
@@ -944,6 +945,11 @@ export async function runSweepRemote(
   // into a single 30s call is what timed out (70 feed fetches + 100+ ATS
   // board pulls at once); each source now gets its own call, well inside the
   // window, and a slow or failing source is skipped — not fatal to the sweep.
+  // Fetch one source per Lambda call, strictly SEQUENTIAL — this is what got
+  // us out of the all-at-once timeout, so it stays sequential by design.
+  // Speed comes from parallel work that can't reintroduce that risk (the
+  // persistence below, and in-adapter fetch concurrency), not from firing
+  // these calls at once. A slow or failing source is skipped, not fatal.
   const wireRoles: ScoredRoleWire[] = [];
   const perSource: { id: string; count: number }[] = [];
   let fetchedTotal = 0;
@@ -997,59 +1003,73 @@ export async function runSweepRemote(
   );
   const now = new Date().toISOString();
 
+  // Collapse the staged haul to one write per role before persisting: each
+  // wire either merges onto an existing row (by sourceId, else company+title)
+  // or becomes one new row — and cross-source duplicates within this sweep
+  // collapse too. With one op per distinct target, the writes can run in
+  // parallel without two of them racing the same row (which is what made
+  // sequential the only safe choice before).
+  const updates = new Map<string, { prev: RoleRow; wire: ScoredRoleWire }>();
+  const creates = new Map<string, ScoredRoleWire>();
   for (const wire of wireRoles) {
     const prev =
       bySourceId.get(wire.sourceId) ??
       (wire.company && wire.title ? byNameTitle.get(normKey(wire.company, wire.title)) : undefined);
     if (prev) {
-      const prevFit = parseJsonField<FitJson | null>(prev.fit, null);
-      const keepAi = prevFit?.source === 'ai';
-      await c.models.Role.update({
-        id: prev.id,
-        seenCount: (prev.seenCount ?? 1) + 1,
-        lastSeen: now,
-        seenRuns: [...(prev.seenRuns ?? []).map((r) => !!r).slice(-7), true],
-        fit: JSON.stringify(keepAi ? prevFit : baselineFit(wire, cfg)),
-        gem: wire.gem ? JSON.stringify(wire.gem) : prev.gem == null ? undefined : prev.gem,
-        // Heal fields the source may have parsed better this run.
-        ...(wire.company && !prev.company ? { company: wire.company } : {}),
-        ...(wire.location && !prev.location ? { location: wire.location } : {}),
-        ...(wire.url && !prev.url ? { url: wire.url } : {}),
-        ...(wire.salary ? { salary: wire.salary } : {}),
-        // Re-classify eligibility with the current geo rules — unless the
-        // owner overrode it, which always wins.
-        ...(prev.eligibilityOverridden ? {} : { eligibility: JSON.stringify(wire.eligibility) }),
-      });
+      if (!updates.has(prev.id)) updates.set(prev.id, { prev, wire });
     } else {
-      const created = await c.models.Role.create({
-        sourceId: wire.sourceId,
-        title: wire.title,
-        company: wire.company,
-        location: wire.location,
-        url: wire.url || undefined,
-        rawDescription: wire.rawDescription,
-        sourceName: wire.sourceName,
-        salary: wire.salary,
-        eligibility: JSON.stringify(wire.eligibility),
-        eligibilityOverridden: false,
-        fit: JSON.stringify(baselineFit(wire, cfg)),
-        seenCount: 1,
-        firstSeen: now,
-        lastSeen: now,
-        seenRuns: [true],
-        phantomMuted: false,
-        gem: wire.gem ? JSON.stringify(wire.gem) : undefined,
-        gemDecision: wire.gem ? 'pending' : undefined,
-        pipelineStage: 'none',
-        dismissed: false,
-      });
-      if (created.data) {
-        const row = created.data as unknown as RoleRow;
-        bySourceId.set(wire.sourceId, row);
-        if (wire.company && wire.title) byNameTitle.set(normKey(wire.company, wire.title), row);
-      }
+      const key = wire.company && wire.title ? normKey(wire.company, wire.title) : wire.sourceId;
+      if (!creates.has(key)) creates.set(key, wire);
     }
   }
+
+  // Bounded-concurrency writes — the slow tail of a big sweep was thousands
+  // of these run one at a time.
+  await mapLimit([...updates.values()], 8, async ({ prev, wire }) => {
+    const prevFit = parseJsonField<FitJson | null>(prev.fit, null);
+    const keepAi = prevFit?.source === 'ai';
+    await c.models.Role.update({
+      id: prev.id,
+      seenCount: (prev.seenCount ?? 1) + 1,
+      lastSeen: now,
+      seenRuns: [...(prev.seenRuns ?? []).map((r) => !!r).slice(-7), true],
+      fit: JSON.stringify(keepAi ? prevFit : baselineFit(wire, cfg)),
+      gem: wire.gem ? JSON.stringify(wire.gem) : prev.gem == null ? undefined : prev.gem,
+      // Heal fields the source may have parsed better this run.
+      ...(wire.company && !prev.company ? { company: wire.company } : {}),
+      ...(wire.location && !prev.location ? { location: wire.location } : {}),
+      ...(wire.url && !prev.url ? { url: wire.url } : {}),
+      ...(wire.salary ? { salary: wire.salary } : {}),
+      // Re-classify eligibility with the current geo rules — unless the
+      // owner overrode it, which always wins.
+      ...(prev.eligibilityOverridden ? {} : { eligibility: JSON.stringify(wire.eligibility) }),
+    });
+  });
+
+  await mapLimit([...creates.values()], 8, async (wire) => {
+    await c.models.Role.create({
+      sourceId: wire.sourceId,
+      title: wire.title,
+      company: wire.company,
+      location: wire.location,
+      url: wire.url || undefined,
+      rawDescription: wire.rawDescription,
+      sourceName: wire.sourceName,
+      salary: wire.salary,
+      eligibility: JSON.stringify(wire.eligibility),
+      eligibilityOverridden: false,
+      fit: JSON.stringify(baselineFit(wire, cfg)),
+      seenCount: 1,
+      firstSeen: now,
+      lastSeen: now,
+      seenRuns: [true],
+      phantomMuted: false,
+      gem: wire.gem ? JSON.stringify(wire.gem) : undefined,
+      gemDecision: wire.gem ? 'pending' : undefined,
+      pipelineStage: 'none',
+      dismissed: false,
+    });
+  });
 
   // AI fit refinement for the strongest new reads — best effort; a Bedrock
   // hiccup leaves the honest baseline in place. Dimensions come from the
