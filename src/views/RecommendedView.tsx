@@ -6,7 +6,7 @@ import type { Role } from '../domain/types';
 import { fitDimensions } from '../state/selectors';
 import { useStore } from '../state/store';
 import { EligBadge, filterToggleStyle, formatDiscovered, MONO } from '../ui/primitives';
-import { VERDICTS, chipTone, defNote, eligVm, fillColor, fillFor, meterColor } from '../ui/tones';
+import { VERDICTS, chipTone, meterColor } from '../ui/tones';
 
 export function RecommendedView() {
   const { state, dispatch, startRun } = useStore();
@@ -156,8 +156,6 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
   // The owner's dimensions — derived from their parsed strengths.
   const dims = fitDimensions(state);
   const v = VERDICTS[r.verdict];
-  const elig = eligVm(r.elig);
-  const expanded = !!state.expanded[r.id];
   const overridden = !!state.overrides[r.id];
   const blocked = r.elig.state === 'us' || r.elig.state === 'other';
   const down = r.down || (blocked && !overridden);
@@ -196,10 +194,7 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
         overflow: 'hidden',
       }}
     >
-      <div
-        onClick={() => dispatch({ type: 'TOGGLE_EXPAND', id: r.id })}
-        style={{ display: 'flex', gap: 16, padding: '16px 18px', cursor: 'pointer', alignItems: 'flex-start' }}
-      >
+      <div style={{ display: 'flex', gap: 16, padding: '16px 18px', alignItems: 'flex-start' }}>
         <div style={{ fontFamily: MONO, fontSize: 13, color: '#B8B0A0', width: 24, flex: '0 0 auto', paddingTop: 2 }}>
           {String(rank).padStart(2, '0')}
         </div>
@@ -208,7 +203,7 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--rr-ink)', letterSpacing: '-0.01em' }}>
               {r.title}
             </span>
-            <EligBadge elig={r.elig} />
+            <EligBadge elig={r.elig} tooltip={r.elig.detail} />
           </div>
           <div style={{ fontFamily: MONO, fontSize: 11.5, color: '#8A8475', marginTop: 5 }}>
             {[
@@ -328,7 +323,6 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flex: '0 0 auto' }}>
-          <span style={{ fontFamily: MONO, fontSize: 16, color: '#C4BCAC' }}>{expanded ? '−' : '+'}</span>
           <span
             style={{
               fontFamily: MONO,
@@ -347,180 +341,102 @@ function RoleCard({ role: r, rank }: { role: Role; rank: number }) {
         </div>
       </div>
 
-      {expanded && (
-        <div style={{ borderTop: '1px dashed #E0DACE', background: '#FCFBF8', padding: '20px 22px' }}>
-          <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginBottom: 18 }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: v.color, flex: '0 0 auto', paddingTop: 2 }}>
-              VERDICT
-            </span>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: '#3A352D', textWrap: 'pretty', maxWidth: 680 }}>
-              {r.sentence}
-            </p>
-          </div>
+      <div style={{ borderTop: '1px dashed #E0DACE', background: '#FCFBF8', padding: '13px 18px 14px' }}>
+        <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginBottom: 12 }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: v.color, flex: '0 0 auto', paddingTop: 2 }}>
+            VERDICT
+          </span>
+          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: '#3A352D', textWrap: 'pretty', maxWidth: 680 }}>
+            {r.sentence}
+          </p>
+        </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: '#A39C8B', letterSpacing: '0.08em' }}>
-              FIT BREAKDOWN — WHY THIS RANKS WHERE IT DOES
-            </span>
-            <span
-              style={{
-                fontFamily: MONO,
-                fontSize: 9.5,
-                color: '#6B4FA8',
-                background: '#EDE8F5',
-                border: '1px solid #D5CAE8',
-                borderRadius: 5,
-                padding: '1px 7px',
-              }}
-            >
-              ◈ scored vs your résumé profile
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-            {dims.map(([k, label]) => (
-              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap' }}>
-                <span style={{ width: 172, flex: '0 0 auto', fontFamily: MONO, fontSize: 11, color: 'var(--rr-muted)' }}>
-                  {label}
-                </span>
-                <div style={{ flex: '0 0 120px', height: 7, background: '#EBE6DB', borderRadius: 4, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      height: '100%',
-                      width: fillFor(r.dims[k]),
-                      background: fillColor(r.dims[k]),
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <span style={{ flex: 1, minWidth: 180, fontSize: 12.5, color: '#7A7468' }}>
-                  {r.notes[k] ?? defNote(r.dims[k])}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => dispatch({ type: 'ADD_TO_PIPE', id: r.id })}
+            className="rr-btn-primary"
             style={{
-              background: '#F4F1E9',
-              border: '1px solid #E6E1D5',
-              borderRadius: 9,
-              padding: '13px 15px',
-              marginBottom: 14,
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 11,
-              flexWrap: 'wrap',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '8px 15px',
+              borderRadius: 7,
+              color: '#fff',
+              fontFamily: MONO,
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.03em',
             }}
           >
-            <span
-              style={{
-                fontFamily: MONO,
-                fontSize: 10,
-                color: elig.color,
-                border: `1px solid ${elig.bd}`,
-                background: elig.bg,
-                padding: '2px 7px',
-                borderRadius: 5,
-                flex: '0 0 auto',
-              }}
-            >
-              {elig.label}
-            </span>
-            <span style={{ flex: 1, minWidth: 240, fontSize: 12.5, color: '#5E594E', lineHeight: 1.55 }}>
-              {r.elig.detail}
-            </span>
+            {stage ? `In pipeline · ${stage}` : '+ Add to pipeline'}
+          </button>
+          <button
+            onClick={() => {
+              if (r.url) window.open(r.url, '_blank', 'noopener');
+            }}
+            style={{
+              border: '1px solid #D8D2C5',
+              background: 'var(--rr-surface)',
+              color: '#3A352D',
+              cursor: 'pointer',
+              padding: '8px 15px',
+              borderRadius: 7,
+              fontFamily: MONO,
+              fontSize: 11,
+            }}
+          >
+            Open posting ↗
+          </button>
+          <button
+            onClick={() => dispatch({ type: 'DISMISS_ROLE', id: r.id })}
+            style={{
+              border: '1px solid #E2DDD1',
+              background: 'transparent',
+              color: 'var(--rr-faint)',
+              cursor: 'pointer',
+              padding: '8px 15px',
+              borderRadius: 7,
+              fontFamily: MONO,
+              fontSize: 11,
+            }}
+          >
+            Dismiss
+          </button>
+          <button
+            onClick={() => dispatch({ type: 'MUTE_CO', name: r.company })}
+            title="Never show roles from this company"
+            style={{
+              border: '1px solid #E2DDD1',
+              background: 'transparent',
+              color: 'var(--rr-faint)',
+              cursor: 'pointer',
+              padding: '8px 15px',
+              borderRadius: 7,
+              fontFamily: MONO,
+              fontSize: 11,
+            }}
+          >
+            Mute company
+          </button>
+          {blocked && (
             <button
               onClick={() => dispatch({ type: 'TOGGLE_OVERRIDE', id: r.id })}
-              style={{
-                border: '1px solid #D8D2C5',
-                background: 'var(--rr-surface)',
-                color: 'var(--rr-muted)',
-                cursor: 'pointer',
-                padding: '5px 11px',
-                borderRadius: 6,
-                fontFamily: MONO,
-                fontSize: 10.5,
-              }}
-            >
-              {overridden
-                ? 'Mark ineligible'
-                : r.elig.state === 'us'
-                  ? 'I have US auth'
-                  : r.elig.state === 'ca'
-                    ? 'Mark ineligible'
-                    : 'Mark eligible'}
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => dispatch({ type: 'ADD_TO_PIPE', id: r.id })}
-              className="rr-btn-primary"
-              style={{
-                border: 'none',
-                cursor: 'pointer',
-                padding: '9px 16px',
-                borderRadius: 7,
-                color: '#fff',
-                fontFamily: MONO,
-                fontSize: 11.5,
-                fontWeight: 600,
-                letterSpacing: '0.03em',
-              }}
-            >
-              {stage ? `In pipeline · ${stage}` : '+ Add to pipeline'}
-            </button>
-            <button
-              onClick={() => {
-                if (r.url) window.open(r.url, '_blank', 'noopener');
-              }}
-              style={{
-                border: '1px solid #D8D2C5',
-                background: 'var(--rr-surface)',
-                color: '#3A352D',
-                cursor: 'pointer',
-                padding: '9px 16px',
-                borderRadius: 7,
-                fontFamily: MONO,
-                fontSize: 11.5,
-              }}
-            >
-              Open posting ↗
-            </button>
-            <button
-              onClick={() => dispatch({ type: 'DISMISS_ROLE', id: r.id })}
+              title={r.elig.detail}
               style={{
                 border: '1px solid #E2DDD1',
                 background: 'transparent',
                 color: 'var(--rr-faint)',
                 cursor: 'pointer',
-                padding: '9px 16px',
+                padding: '8px 15px',
                 borderRadius: 7,
                 fontFamily: MONO,
-                fontSize: 11.5,
+                fontSize: 11,
               }}
             >
-              Dismiss
+              {overridden ? 'Mark ineligible' : r.elig.state === 'us' ? 'I have US auth' : 'Mark eligible'}
             </button>
-            <button
-              onClick={() => dispatch({ type: 'MUTE_CO', name: r.company })}
-              title="Never show roles from this company"
-              style={{
-                border: '1px solid #E2DDD1',
-                background: 'transparent',
-                color: 'var(--rr-faint)',
-                cursor: 'pointer',
-                padding: '9px 16px',
-                borderRadius: 7,
-                fontFamily: MONO,
-                fontSize: 11.5,
-              }}
-            >
-              Mute company
-            </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
