@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AuthGate } from './auth/AuthGate';
 import { AssistantRail } from './components/AssistantRail';
+import { SweepModal } from './components/SweepModal';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import type { ViewKey } from './domain/types';
@@ -127,6 +128,7 @@ export default function App() {
       </main>
 
       <AssistantRail />
+      <SweepModal />
     </div>
   );
 }
