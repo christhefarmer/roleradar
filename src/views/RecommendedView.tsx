@@ -3,7 +3,7 @@
 // reveals the transparent fit breakdown. A score is never shown without its why.
 
 import type { Role } from '../domain/types';
-import { fitDimensions } from '../state/selectors';
+import { fitDimensions, visibleRoles } from '../state/selectors';
 import { useStore } from '../state/store';
 import { EligBadge, filterToggleStyle, formatDiscovered, MONO } from '../ui/primitives';
 import { VERDICTS, chipTone, meterColor } from '../ui/tones';
@@ -11,18 +11,8 @@ import { VERDICTS, chipTone, meterColor } from '../ui/tones';
 export function RecommendedView() {
   const { state, dispatch, startRun } = useStore();
 
-  let list = state.roles.filter(
-    (r) => !state.dismissed[r.id] && !state.excluded.includes(r.company),
-  );
-  // Canada or remote only: confirmed-CA and regionless-remote pass; US-only,
-  // elsewhere-international and unclassifiable stay hidden unless overridden.
-  if (state.canadaOnly)
-    list = list.filter(
-      (r) => r.elig.state === 'ca' || r.elig.state === 'remote' || state.overrides[r.id],
-    );
-  if (state.hideBelow) list = list.filter((r) => r.verdict !== 'below' && r.verdict !== 'mismatch');
   const tierOf = (r: Role) => (r.verdict === 'below' || r.verdict === 'mismatch' ? 2 : 0);
-  list = [...list].sort((a, b) => {
+  const list = visibleRoles(state).sort((a, b) => {
     if (state.sortBy === 'new') return a.days - b.days;
     const t = tierOf(a) - tierOf(b);
     return t !== 0 ? t : b.score - a.score;
