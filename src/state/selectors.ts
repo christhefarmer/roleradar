@@ -2,8 +2,21 @@
 // the Gems view can never disagree about what counts as a visible gem.
 
 import { DIMS } from '../data/seed';
-import type { Gem } from '../domain/types';
+import type { Gem, Role } from '../domain/types';
 import type { AppState } from './store';
+
+/** Roles the Roles view lists (pre-sort): not dismissed, company not
+ *  excluded, passing the Canada and below-level filters. Drives both the
+ *  page and the sidebar badge so they can never disagree. */
+export function visibleRoles(s: AppState): Role[] {
+  return s.roles
+    .filter((r) => !s.dismissed[r.id] && !s.excluded.includes(r.company))
+    .filter(
+      (r) =>
+        !s.canadaOnly || r.elig.state === 'ca' || r.elig.state === 'remote' || s.overrides[r.id],
+    )
+    .filter((r) => !s.hideBelow || (r.verdict !== 'below' && r.verdict !== 'mismatch'));
+}
 
 /** The owner's fit dimensions: their top parsed strengths plus the two
  *  universal dimensions (level fit, Canada eligibility). Design mode keeps

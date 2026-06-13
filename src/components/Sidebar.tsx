@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import type { ViewKey } from '../domain/types';
-import { pendingGemCount } from '../state/selectors';
+import { pendingGemCount, visibleRoles } from '../state/selectors';
 import { useStore } from '../state/store';
 import { HatGlasses } from '../ui/HatGlasses';
 import { MONO } from '../ui/primitives';
@@ -30,7 +30,13 @@ export function Sidebar() {
   // gems the page won't show.
   const gemOpen = pendingGemCount(state);
   const queue = state.proposals.filter((p) => !state.proposalState[p.id]).length;
-  const badges: Partial<Record<ViewKey, number>> = { radar: queue, gems: gemOpen };
+  // Same visibility rules as the Roles page — badge and page always agree.
+  const roleCount = visibleRoles(state).length;
+  const badges: Partial<Record<ViewKey, number>> = {
+    recommend: roleCount,
+    radar: queue,
+    gems: gemOpen,
+  };
   // Gems only earns a nav slot when there is something to triage (kept
   // visible while you're on it so the view never orphans).
   const navItems = NAV.filter((n) => n.key !== 'gems' || gemOpen > 0 || state.view === 'gems');
