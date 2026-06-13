@@ -148,12 +148,12 @@ const DEFAULT_SOURCES: SourceDef[] = [
     tag: 'ACTIVE',
     on: true,
   },
-  { name: 'LinkedIn', note: 'Manual — paste roles from email alerts', tag: 'MANUAL', on: true },
 ];
 
-/** Sources that shipped and were retired (e.g. Indeed RSS — bot-walled from
- *  Lambda) — dropped from stored lists on load. */
-const RETIRED_SOURCES = new Set(['indeed']);
+/** Sources that shipped and were retired (Indeed RSS — bot-walled from
+ *  Lambda; the manual LinkedIn paste row — superseded by the Apify lane) —
+ *  dropped from stored lists on load. */
+const RETIRED_SOURCES = new Set(['indeed', 'linkedin']);
 
 /** Stored source lists predate newly shipped adapters — union the catalog in
  *  (keeping the owner's toggles) and drop retired ones, so the Range list
