@@ -143,6 +143,7 @@ const DEFAULT_SOURCES: SourceDef[] = [
   { name: 'SmartRecruiters', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'BambooHR', note: 'ATS JSON · watchlist companies', tag: 'ACTIVE', on: true },
   { name: 'Eluta.ca', note: 'Sanctioned RSS / OpenSearch · Canada', tag: 'ACTIVE', on: true },
+  { name: 'Job Bank', note: 'Gov of Canada · sanctioned RSS · all-Canada', tag: 'ACTIVE', on: true },
   {
     name: 'LinkedIn (Apify)',
     note: 'Public listings via Apify · results trail one sweep · pay-per-result',
@@ -176,6 +177,7 @@ export const SOURCE_ADAPTER_IDS: Record<string, string> = {
   SmartRecruiters: 'smartrecruiters',
   BambooHR: 'bamboohr',
   'Eluta.ca': 'eluta',
+  'Job Bank': 'jobbank',
   'LinkedIn (Apify)': 'linkedin-apify',
 };
 
@@ -189,11 +191,12 @@ export const ADAPTER_DISPLAY: Record<string, string> = {
   smartrecruiters: 'SmartRecruiters',
   bamboohr: 'BambooHR',
   eluta: 'Eluta.ca RSS',
+  jobbank: 'Job Bank RSS',
   'linkedin-apify': 'LinkedIn (Apify)',
 };
 
 /** Aggregate adapters are term-driven (vs the watchlist-driven ATS pulls). */
-export const AGGREGATE_ADAPTER_IDS = new Set(['eluta', 'linkedin-apify']);
+export const AGGREGATE_ADAPTER_IDS = new Set(['eluta', 'jobbank', 'linkedin-apify']);
 
 
 // ---------------------------------------------------------------------------

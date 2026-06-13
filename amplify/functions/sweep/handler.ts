@@ -13,6 +13,7 @@ import { ashby } from './adapters/ashby';
 import { bamboohr } from './adapters/bamboohr';
 import { eluta } from './adapters/eluta';
 import { greenhouse } from './adapters/greenhouse';
+import { jobbank } from './adapters/jobbank';
 import { lever } from './adapters/lever';
 import { linkedinApify } from './adapters/linkedinApify';
 import { smartrecruiters } from './adapters/smartrecruiters';
@@ -31,6 +32,7 @@ const ADAPTERS: SourceAdapter[] = [
   smartrecruiters,
   bamboohr,
   eluta,
+  jobbank,
   linkedinApify,
 ];
 
