@@ -62,27 +62,39 @@ export function TopBar({ onBackToBot }: { onBackToBot?: () => void }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, flex: '0 0 auto' }}>
         <button
           onClick={startRun}
+          disabled={state.running}
           className={state.running ? undefined : 'rr-btn-primary'}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 9,
             border: 'none',
-            cursor: 'pointer',
+            cursor: state.running ? 'progress' : 'pointer',
             padding: '11px 18px',
             borderRadius: 8,
-            background: state.running ? 'var(--rr-panel)' : undefined,
-            color: state.running ? 'var(--rr-faint)' : '#fff',
+            // While scouting: stay green and pulse, so it clearly reads as
+            // working (it used to go muted grey — easy to mistake for idle).
+            background: state.running ? 'var(--rr-primary)' : undefined,
+            color: '#fff',
             fontFamily: MONO,
             fontSize: 12,
             fontWeight: 600,
             letterSpacing: '0.06em',
             boxShadow: state.running
-              ? 'none'
+              ? '0 1px 0 #15623A, 0 2px 8px rgba(30,138,79,0.25)'
               : '0 1px 0 #15623A, 0 2px 8px rgba(30,138,79,0.25)',
+            animation: state.running ? 'radarpulse 1.5s infinite' : 'none',
           }}
         >
-          <span style={{ fontSize: 11 }}>{state.running ? '◎' : '▸'}</span>
+          <span
+            style={{
+              fontSize: 11,
+              display: 'inline-block',
+              animation: state.running ? 'radarsweep 1.6s linear infinite' : 'none',
+            }}
+          >
+            {state.running ? '◎' : '▸'}
+          </span>
           {state.running ? 'SCOUTING…' : 'SEND SCOUTS'}
         </button>
       </div>
