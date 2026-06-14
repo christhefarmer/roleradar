@@ -1360,6 +1360,20 @@ function formatTurnError(error: unknown): string {
   return 'stream error';
 }
 
+/** Bind the live stream of a conversation to the current turn's handlers. */
+function bindStream(conv: ConversationHandle): void {
+  streamSub = conv.onStreamEvent({
+    next: (event) => {
+      if (event.text) handlers?.onDelta(event.text);
+      if (event.stopReason) handlers?.onDone();
+    },
+    error: (error) => {
+      console.error('radar stream', error);
+      handlers?.onError(formatTurnError(error));
+    },
+  });
+}
+
 /** Resume the owner's most recent Radar conversation (history persists per
  *  owner — ARCHITECTURE.md §3), or start one. Single-flight so concurrent
  *  callers share the bootstrap; the stream subscription is attached before
@@ -1379,16 +1393,7 @@ function ensureConversation(): Promise<ConversationHandle> {
         if (!created.data) throw new Error('Could not start a Radar conversation');
         conv = created.data as unknown as ConversationHandle;
       }
-      streamSub = conv.onStreamEvent({
-        next: (event) => {
-          if (event.text) handlers?.onDelta(event.text);
-          if (event.stopReason) handlers?.onDone();
-        },
-        error: (error) => {
-          console.error('radar stream', error);
-          handlers?.onError(formatTurnError(error));
-        },
-      });
+      bindStream(conv);
       return conv;
     })().catch((e) => {
       conversationPromise = null; // allow retry on the next call
@@ -1437,4 +1442,26 @@ export function resetChat(): void {
   streamSub = null;
   conversationPromise = null;
   handlers = null;
+}
+
+/** Start a fresh Radar conversation and abandon the current one. The new
+ *  conversation becomes the most-recent, so ensureConversation/loadChatHistory
+ *  resume it next load — the old thread is left intact server-side, just no
+ *  longer surfaced (cheaper and safer than a destructive delete). */
+export async function startNewChatRemote(): Promise<void> {
+  streamSub?.unsubscribe();
+  streamSub = null;
+  handlers = null;
+  conversationPromise = (async () => {
+    const c = client();
+    const created = await c.conversations.chat.create({ name: 'Radar' });
+    if (!created.data) throw new Error('Could not start a new Radar conversation');
+    const conv = created.data as unknown as ConversationHandle;
+    bindStream(conv);
+    return conv;
+  })().catch((e) => {
+    conversationPromise = null; // allow retry on the next call
+    throw e;
+  });
+  await conversationPromise;
 }

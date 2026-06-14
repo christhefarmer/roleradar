@@ -17,16 +17,45 @@ const PROMPTS = [
   'Explain a phantom',
 ];
 
+// Dismissed suggestion chips persist per device (mirrors the Gems intro banner).
+const PROMPTS_DISMISSED_KEY = 'rr-radar-prompts-dismissed';
+
 export function AssistantRail() {
   const { state, dispatch, api } = useStore();
   const [input, setInput] = useState('');
+  const [dismissedPrompts, setDismissedPrompts] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PROMPTS_DISMISSED_KEY) ?? '[]');
+    } catch {
+      return [];
+    }
+  });
   const chatRef = useRef<HTMLDivElement>(null);
 
   const lastLen = state.chat[state.chat.length - 1]?.text?.length ?? 0;
   useEffect(() => {
     const el = chatRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [state.chat.length, lastLen]);
+    if (!el) return;
+    // Defer a frame so variable-height content (proposal cards, fonts) is laid
+    // out before we measure — otherwise opening lands short of the bottom.
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [state.assistantOpen, state.chat.length, lastLen, state.proposals.length]);
+
+  const dismissPrompt = (label: string) => {
+    setDismissedPrompts((prev) => {
+      const next = prev.includes(label) ? prev : [...prev, label];
+      try {
+        localStorage.setItem(PROMPTS_DISMISSED_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore storage availability/quota */
+      }
+      return next;
+    });
+  };
+  const visiblePrompts = PROMPTS.filter((p) => !dismissedPrompts.includes(p));
 
   const queue = state.proposals.filter((p) => !state.proposalState[p.id]).length;
 
@@ -120,6 +149,25 @@ export function AssistantRail() {
             RADAR
           </div>
         </div>
+        <button
+          onClick={() => api.startNewChat()}
+          disabled={state.chatBusy}
+          title="Start a new chat"
+          style={{
+            border: '1px solid var(--rr-border)',
+            background: 'var(--rr-surface)',
+            color: 'var(--rr-muted)',
+            cursor: state.chatBusy ? 'default' : 'pointer',
+            opacity: state.chatBusy ? 0.5 : 1,
+            fontFamily: MONO,
+            fontSize: 10,
+            padding: '4px 9px',
+            borderRadius: 7,
+            flex: '0 0 auto',
+          }}
+        >
+          ＋ new
+        </button>
         <button
           onClick={() => dispatch({ type: 'TOGGLE_ASSISTANT' })}
           style={{
@@ -218,27 +266,52 @@ export function AssistantRail() {
         )}
       </div>
 
-      <div
-        style={{ padding: '0 14px 10px', display: 'flex', gap: 7, flexWrap: 'wrap', flex: '0 0 auto' }}
-      >
-        {PROMPTS.map((label) => (
-          <button
-            key={label}
-            onClick={() => send(label)}
-            style={{
-              border: '1px solid var(--rr-border)',
-              background: 'var(--rr-surface)',
-              color: '#5E594E',
-              cursor: 'pointer',
-              padding: '6px 11px',
-              borderRadius: 16,
-              fontSize: 11.5,
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {visiblePrompts.length > 0 && (
+        <div
+          style={{ padding: '0 14px 10px', display: 'flex', gap: 7, flexWrap: 'wrap', flex: '0 0 auto' }}
+        >
+          {visiblePrompts.map((label) => (
+            <span
+              key={label}
+              role="button"
+              tabIndex={0}
+              onClick={() => send(label)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                border: '1px solid var(--rr-border)',
+                background: 'var(--rr-surface)',
+                color: '#5E594E',
+                cursor: 'pointer',
+                padding: '6px 8px 6px 11px',
+                borderRadius: 16,
+                fontSize: 11.5,
+              }}
+            >
+              {label}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismissPrompt(label);
+                }}
+                title="Dismiss suggestion"
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#B8B0A0',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: 13,
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div
         style={{
