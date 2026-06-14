@@ -926,10 +926,11 @@ export interface SweepOutcome {
   perSource: { id: string; count: number }[];
 }
 
-/** Highest term cap sent to the sweep. Caps Eluta's per-term feed fetches and
- *  keeps scoring focused on the High/Med tiers — a practical guard against a
- *  bloated term list dragging out the sweep. */
-const MAX_SWEEP_TERMS = 20;
+/** Highest term cap sent to the sweep. Caps each aggregate's per-term feed
+ *  fetches and keeps scoring focused on the High/Med tiers — a practical guard
+ *  against a bloated term list dragging out the sweep. The aggregate adapters
+ *  fan these out at FEED_CONCURRENCY, so this stays inside the 30s window. */
+export const MAX_SWEEP_TERMS = 40;
 
 export type SweepProgress = (id: string, status: 'scanning' | 'done' | 'error', count?: number) => void;
 

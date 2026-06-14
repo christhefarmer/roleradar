@@ -5,7 +5,14 @@
 // endpoint), so the RSS feed is the integration.
 
 import { mapLimit } from './concurrency';
-import { firstField, looksLikeLocation, parseItems, splitFeedTitle } from './rss';
+import {
+  FEED_CONCURRENCY,
+  fetchFeed,
+  firstField,
+  looksLikeLocation,
+  parseItems,
+  splitFeedTitle,
+} from './rss';
 import {
   eligibilityFromLocation,
   extractSalary,
@@ -15,9 +22,12 @@ import {
   type SourceAdapter,
 } from './types';
 
-// Same query params as the search page; sort=M = most recent first.
+// Same query params as the search page; sort=M = most recent first. rows pulls
+// a full page per term (the default page is small) — deduped across terms after.
 const FEED_URL = (term: string) =>
-  `https://www.jobbank.gc.ca/jobsearch/feed/jobSearchRSSfeed?searchstring=${encodeURIComponent(term)}&sort=M`;
+  `https://www.jobbank.gc.ca/jobsearch/feed/jobSearchRSSfeed?searchstring=${encodeURIComponent(
+    term,
+  )}&sort=M&rows=100`;
 
 /** Job Bank posting ids live in the link as /jobposting/{id}. */
 function jobKey(link: string): string {
@@ -32,13 +42,13 @@ export const jobbank: SourceAdapter = {
 
   async fetch(config: FetchConfig): Promise<RawPosting[]> {
     let logged = false;
-    const batches = await mapLimit(config.terms, 5, async (term) => {
+    const batches = await mapLimit(config.terms, FEED_CONCURRENCY, async (term) => {
       const out: RawPosting[] = [];
       try {
-        const res = await fetch(FEED_URL(term), { signal: AbortSignal.timeout(8000) });
+        const res = await fetchFeed(FEED_URL(term));
         if (!res.ok) {
           if (!logged) {
-            console.log(`jobbank feed: HTTP ${res.status} for "${term}"`);
+            console.log(`jobbank feed: HTTP ${res.status} (${res.headers.get('content-type')}) for "${term}"`);
             logged = true;
           }
           return out;
@@ -46,7 +56,7 @@ export const jobbank: SourceAdapter = {
         const xml = await res.text();
         if (!logged) {
           const sample = xml.match(/<item[\s>][\s\S]{0,700}/)?.[0];
-          console.log('jobbank sample item:', sample ?? `(no items; first 200: ${xml.slice(0, 200)})`);
+          console.log('jobbank sample item:', sample ?? `(no items; first 300: ${xml.slice(0, 300)})`);
           logged = true;
         }
         for (const fields of parseItems(xml)) {
