@@ -65,6 +65,10 @@ export interface BoardCheck {
   at: number;
 }
 
+/** Greeting shown for a fresh chat and after "new chat". */
+const RADAR_GREETING =
+  "Hi — I'm Radar. I send scouts across your sources and bring back what fits. I can walk you through your matches, explain any fit score, flag phantoms, or tee up changes for your approval. Where do you want to start?";
+
 export interface AppState {
   connected: boolean;
   /** Connected mode boots by checking the Cognito session. */
@@ -285,6 +289,7 @@ export type Action =
   | { type: 'CHAT_BUSY'; busy: boolean }
   | { type: 'CHAT_HYDRATE'; messages: ChatMessage[] }
   | { type: 'CHAT_ERROR'; text: string }
+  | { type: 'CHAT_RESET' }
   | { type: 'SET_AUTH_MODE'; mode: AuthMode }
   | { type: 'SIGN_IN'; email?: string; name?: string }
   | { type: 'VERIFY'; name?: string; email?: string }
@@ -681,6 +686,16 @@ function reducer(state: AppState, action: Action): AppState {
       }
       return { ...state, chat, chatBusy: false };
     }
+    case 'CHAT_RESET': {
+      // Fresh thread: a single greeting, with the approval queue re-attached if
+      // proposals are still pending (mirrors CHAT_HYDRATE).
+      const pending = state.proposals.some((p) => !state.proposalState[p.id]);
+      return {
+        ...state,
+        chat: [{ role: 'bot', text: RADAR_GREETING, showProposals: pending }],
+        chatBusy: false,
+      };
+    }
     case 'SET_AUTH_MODE':
       return { ...state, authMode: action.mode };
     case 'SIGN_IN':
@@ -752,6 +767,8 @@ interface Api {
   signOut: () => Promise<void>;
   parseProfile: () => Promise<void>;
   sendChat: (text: string) => void;
+  /** Abandon the current thread and start a fresh chat. */
+  startNewChat: () => void;
   /** Bulk-dismiss every role the active filters hide (button on Roles).
    *  Returns the count dismissed. */
   dismissHidden: () => number;
@@ -1158,6 +1175,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             onError: fail,
           })
           .catch((e) => fail(e instanceof Error ? e.message : String(e)));
+      },
+      startNewChat() {
+        // Reset the visible thread immediately; in connected mode start a fresh
+        // server conversation so the old one is abandoned (best-effort).
+        dispatch({ type: 'CHAT_RESET' });
+        if (isConnected) void remote.startNewChatRemote().catch(() => {});
       },
       dismissHidden() {
         const ids = hiddenRoles(stateRef.current).map((r) => r.id);
