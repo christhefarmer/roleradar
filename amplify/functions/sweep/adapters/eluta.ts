@@ -5,7 +5,14 @@
 // nearly free.
 
 import { mapLimit } from './concurrency';
-import { firstField, looksLikeLocation, parseItems, splitFeedTitle } from './rss';
+import {
+  FEED_CONCURRENCY,
+  fetchFeed,
+  firstField,
+  looksLikeLocation,
+  parseItems,
+  splitFeedTitle,
+} from './rss';
 import {
   eligibilityFromLocation,
   extractSalary,
@@ -27,10 +34,10 @@ export const eluta: SourceAdapter = {
     // them one slow request at a time. The client caps the term list, so this
     // stays modest; dedup by link happens after collecting across terms.
     let logged = false;
-    const batches = await mapLimit(config.terms, 5, async (term) => {
+    const batches = await mapLimit(config.terms, FEED_CONCURRENCY, async (term) => {
       const out: RawPosting[] = [];
       try {
-        const res = await fetch(FEED_URL(term), { signal: AbortSignal.timeout(8000) });
+        const res = await fetchFeed(FEED_URL(term));
         if (!res.ok) return out;
         const xml = await res.text();
         if (!logged) {

@@ -901,7 +901,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Connected: the real Scout Lambda, staged one source per call (fanning
     // every source into one 30s call is what timed out). Each row lights up
     // for real as its call returns — no fixed timer.
-    const termCount = Math.min(20, s.termGroups.reduce((n, g) => n + g.terms.length, 0));
+    const termCount = Math.min(
+      remote.MAX_SWEEP_TERMS,
+      s.termGroups.reduce((n, g) => n + g.terms.length, 0),
+    );
     let sources: RunSource[] = s.sources
       .filter((x) => x.on && remote.SOURCE_ADAPTER_IDS[x.name])
       .map((x): RunSource => {

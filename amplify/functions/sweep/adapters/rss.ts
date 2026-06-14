@@ -2,6 +2,28 @@
 // feeds vary in which tags carry what, so we expose every child tag of each
 // <item> and let the adapter pick its candidates.
 
+/** Per-term aggregate-feed fan-out budget, shared so Eluta and Job Bank stay
+ *  inside the sweep's 30s window even as the term cap rises. Each term is one
+ *  feed fetch, so wall-time ≈ ceil(terms / FEED_CONCURRENCY) × per-fetch timeout. */
+export const FEED_CONCURRENCY = 12;
+
+// Browser-like request headers. CDN-fronted feeds — notably Job Bank behind
+// Akamai — reject header-less server requests with a 403 or an HTML bot
+// challenge, which parses to zero <item>s and looks like an empty feed. A
+// realistic User-Agent plus an RSS/XML Accept keeps them serving the feed.
+const FEED_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept:
+    'application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.8',
+  'Accept-Language': 'en-CA,en;q=0.9',
+};
+
+/** Fetch a feed with browser-like headers and a bounded timeout. */
+export function fetchFeed(url: string, timeoutMs = 8000): Promise<Response> {
+  return fetch(url, { headers: FEED_HEADERS, signal: AbortSignal.timeout(timeoutMs) });
+}
+
 export function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, '&')
