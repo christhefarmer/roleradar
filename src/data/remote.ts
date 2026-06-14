@@ -909,6 +909,22 @@ export async function resolveCompanyRemote(name: string): Promise<WatchEntry[]> 
     .map((b) => ({ name, src: PROVIDER_SRC[b.provider!] ?? 'RSS', slug: b.slug }));
 }
 
+export interface BoardVerification {
+  ok: boolean;
+  status: number | null;
+}
+
+/** Probe one watchlist board (server-side) for reachability — the exact
+ *  provider + slug the sweep pulls, so a green check means the sweep can
+ *  reach it. Reachable-only: no role count, just { ok, status }. */
+export async function verifyBoardRemote(
+  provider: string,
+  slug: string,
+): Promise<BoardVerification> {
+  const res = await client().mutations.verifyBoard({ provider, slug });
+  return parseJsonField<BoardVerification>(res.data, { ok: false, status: null });
+}
+
 // ---------------------------------------------------------------------------
 // The sweep: invoke the Lambda, persist results owner-side, refine top fits
 
