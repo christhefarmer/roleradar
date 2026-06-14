@@ -10,6 +10,7 @@ import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 import { aiInvoke } from '../functions/ai-invoke/resource';
 import { resolveBoard } from '../functions/resolve-board/resource';
 import { sweep } from '../functions/sweep/resource';
+import { verifyBoard } from '../functions/verify-board/resource';
 
 // Keep model ids in one place; allow upgrade (ARCHITECTURE.md §3).
 // All routes ride Claude Haiku 4.5 by owner preference. Note: 4.x Claude
@@ -137,6 +138,15 @@ const schema = a.schema({
     .arguments({ company: a.string().required() })
     .returns(a.json())
     .handler(a.handler.function(resolveBoard))
+    .authorization((allow) => [allow.authenticated()]),
+
+  // Board verification: probe the exact provider + slug a watchlist row pulls
+  // and report reachability ({ ok, status }) — confidence the sweep can find it.
+  verifyBoard: a
+    .mutation()
+    .arguments({ provider: a.string().required(), slug: a.string().required() })
+    .returns(a.json())
+    .handler(a.handler.function(verifyBoard))
     .authorization((allow) => [allow.authenticated()]),
 
   // ----- AI routes (Amplify AI Kit / Bedrock) -------------------------------

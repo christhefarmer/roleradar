@@ -8,12 +8,14 @@ import { data } from './data/resource';
 import { aiInvoke } from './functions/ai-invoke/resource';
 import { resolveBoard } from './functions/resolve-board/resource';
 import { sweep } from './functions/sweep/resource';
+import { verifyBoard } from './functions/verify-board/resource';
 
 const backend = defineBackend({
   auth,
   data,
   sweep,
   resolveBoard,
+  verifyBoard,
   aiInvoke,
 });
 

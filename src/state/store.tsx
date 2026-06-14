@@ -57,6 +57,14 @@ import { isConnected } from '../lib/amplify';
 import * as auth from '../auth/authService';
 import * as remote from '../data/remote';
 
+/** Per-board verification status, keyed by `${name.toLowerCase()}:${src}`.
+ *  Ephemeral UI state — never persisted into SearchConfig. */
+export type BoardCheckStatus = 'idle' | 'checking' | 'ok' | 'fail' | 'error';
+export interface BoardCheck {
+  status: BoardCheckStatus;
+  at: number;
+}
+
 export interface AppState {
   connected: boolean;
   /** Connected mode boots by checking the Cognito session. */
@@ -86,6 +94,8 @@ export interface AppState {
   watchPaused: Record<string, boolean>;
   excluded: string[];
   sources: SourceDef[];
+  /** Watchlist board reachability checks (ephemeral; not persisted). */
+  boardChecks: Record<string, BoardCheck>;
   // Gems & pipeline
   gemDecisions: Record<string, 'confirmed' | 'dismissed'>;
   pipeline: Record<string, PipelineStageKey>;
@@ -136,6 +146,7 @@ function createInitialState(connected: boolean): AppState {
     dismissed: {},
     overrides: {},
     watchPaused: {},
+    boardChecks: {},
     gemDecisions: {},
     parsing: false,
     parseError: null,
@@ -246,6 +257,8 @@ export type Action =
   | { type: 'REMOVE_CO'; name: string; src?: string }
   | { type: 'RANGE_POPULATED'; termGroups: TermGroup[]; companies: string[] }
   | { type: 'TOGGLE_PAUSE_CO'; name: string }
+  | { type: 'BOARD_CHECK_START'; key: string }
+  | { type: 'BOARD_CHECK_DONE'; key: string; status: 'ok' | 'fail' | 'error' }
   | { type: 'MUTE_CO'; name: string }
   | { type: 'UNMUTE_CO'; name: string }
   | { type: 'TOGGLE_SOURCE'; name: string }
@@ -488,6 +501,16 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         watchPaused: { ...state.watchPaused, [action.name]: !state.watchPaused[action.name] },
       };
+    case 'BOARD_CHECK_START':
+      return {
+        ...state,
+        boardChecks: { ...state.boardChecks, [action.key]: { status: 'checking', at: Date.now() } },
+      };
+    case 'BOARD_CHECK_DONE':
+      return {
+        ...state,
+        boardChecks: { ...state.boardChecks, [action.key]: { status: action.status, at: Date.now() } },
+      };
     case 'REMOVE_CO':
       // With a src, remove just that board row; without, the whole company.
       return {
@@ -714,6 +737,12 @@ const PROFILE_SYNC = new Set<Action['type']>([
 interface Api {
   /** Probe ATS boards for a company's provider + slug (connected mode). */
   resolveCompany: (name: string) => Promise<WatchEntry[]>;
+  /** Verify one board (provider + slug) is reachable (connected mode).
+   *  Returns 'unavailable' in design mode where there's no backend. */
+  verifyBoard: (
+    provider: string,
+    slug: string,
+  ) => Promise<remote.BoardVerification | 'unavailable'>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   confirm: (name: string, email: string, code: string, password: string) => Promise<void>;
@@ -989,6 +1018,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return await remote.resolveCompanyRemote(name);
         } catch {
           return [];
+        }
+      },
+      async verifyBoard(provider, slug) {
+        if (!isConnected) return 'unavailable';
+        try {
+          return await remote.verifyBoardRemote(provider, slug);
+        } catch {
+          return { ok: false, status: null };
         }
       },
       async signIn(email, password) {
