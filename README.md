@@ -53,8 +53,9 @@ pipeline-deploy` in Amplify Hosting):
    documented next step (ARCHITECTURE.md §2).
 
 - **Desktop** (>820px): the three-column cockpit — sidebar → main → assistant rail.
-- **Mobile** (≤820px) or installed PWA (`/?source=pwa`): opens straight into the
-  Radar bot (splash → live sweep → briefing), with the full-cockpit escape hatch.
+- **Mobile** (≤820px) and installed PWA: the same cockpit — the sidebar collapses to a
+  hamburger top-nav and the assistant rail to an "Ask Radar" launcher. Radar is opened
+  on demand from the rail, not a separate landing screen.
 - PWA shortcuts: `/?action=sweep` runs a sweep on launch, `/?view=queue` opens the
   approval queue.
 
@@ -72,7 +73,6 @@ src/
   data/seed.ts           Prototype seed data (stands in for Amplify Data)
   state/store.tsx        App store — the seam where AppSync wiring lands
   components/ views/     The cockpit (Scouts, Gems, Recommended, Search, Pipeline, Profile)
-  mobile/MobileBot.tsx   Bot-first mobile PWA experience
   auth/AuthGate.tsx      Sign in / sign up / confirm / forgot (mock → Cognito)
 docs/design/             The design handoff bundle (source of truth)
 scripts/make-icons.mjs   Generates the PWA icon set (runs automatically before build)
