@@ -255,10 +255,10 @@ re-exposed. Keep it behind a feature flag until the core sources are solid.
 
 ---
 
-## 5. PWA — installable, offline-capable, bot-first on mobile
+## 5. PWA — installable, offline-capable
 
-Goal: `roleradar.bot` installs to the home screen and **launches straight into Radar**
-on phones, with the full cockpit one tap away.
+Goal: `roleradar.bot` installs to the home screen and **launches straight into the cockpit**
+on phones, with Radar one tap away in the assistant rail.
 
 - **Manifest** — [`manifest.json`](./manifest.json): `display: standalone`, portrait,
   `theme_color`/`background_color` `#1E8A4F`, **maskable** icons (192/512), and **app
@@ -269,9 +269,11 @@ on phones, with the full cockpit one tap away.
   - **Data (AppSync queries):** network-first with a short cache fallback so an offline
     open still shows the last briefing.
   - Use `registerType: 'autoUpdate'` and prompt on new version.
-- **Bot-first routing:** root `/` renders **Radar** on mobile viewports (and `?source=pwa`);
-  desktop renders the cockpit. The mobile escape hatch deep-links into the cockpit views
-  (`/scout`, `/recommended`, `/pipeline`, …).
+- **Responsive cockpit:** desktop and mobile render the same three-column cockpit; on
+  ≤820px the sidebar collapses to a hamburger top-nav and the assistant rail to an
+  "Ask Radar" launcher. Radar is opened on demand from the rail — there is no separate
+  bot-first mobile landing. Deep links still target the cockpit views (`/scout`,
+  `/recommended`, `/pipeline`, …).
 - **Launch feel:** play the live "Scouts on patrol…" sweep on cold start, then settle into
   the briefing — wire its progress to the real async sweep job, not a fixed timer.
 - **iOS niceties:** `apple-mobile-web-app-capable`, status-bar style, and an apple-touch-icon;

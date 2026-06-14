@@ -145,7 +145,11 @@ function createInitialState(connected: boolean): AppState {
     autonomy: 'balanced' as Autonomy,
     radarPaused: false,
     proposalState: {},
-    assistantOpen: true,
+    // Desktop: the rail is the persistent third column. Mobile: it collapses to
+    // a fixed full-screen overlay, so start it closed (the "Ask Radar" launcher)
+    // and land on the cockpit rather than the chat.
+    assistantOpen:
+      typeof window === 'undefined' || !window.matchMedia('(max-width: 820px)').matches,
     chatBusy: false,
     authMode: 'signin' as AuthMode,
   };

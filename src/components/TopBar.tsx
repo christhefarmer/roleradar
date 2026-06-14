@@ -13,7 +13,7 @@ const TITLES: Record<ViewKey, [string, string]> = {
   pipeline: ['Pipeline', 'Every role you are tracking, through to close'],
 };
 
-export function TopBar({ onBackToBot }: { onBackToBot?: () => void }) {
+export function TopBar() {
   const { state, startRun } = useStore();
   const [title, sub] = TITLES[state.view];
 
@@ -33,25 +33,6 @@ export function TopBar({ onBackToBot }: { onBackToBot?: () => void }) {
       }}
     >
       <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-        {onBackToBot && (
-          <button
-            onClick={onBackToBot}
-            title="Back to Radar"
-            style={{
-              border: '1px solid #E2DDD1',
-              background: 'var(--rr-panel)',
-              color: 'var(--rr-muted)',
-              cursor: 'pointer',
-              padding: '7px 11px',
-              borderRadius: 8,
-              fontFamily: MONO,
-              fontSize: 11,
-              flex: '0 0 auto',
-            }}
-          >
-            ◎ bot
-          </button>
-        )}
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em' }}>{title}</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--rr-faint)', marginTop: 2 }}>

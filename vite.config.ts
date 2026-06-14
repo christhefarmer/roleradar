@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// PWA per ARCHITECTURE.md §5: standalone, bot-first, offline-capable.
+// PWA per ARCHITECTURE.md §5: standalone, offline-capable.
 // Manifest fields mirror the design handoff's manifest.json (docs/design/manifest.json).
 export default defineConfig({
   plugins: [
